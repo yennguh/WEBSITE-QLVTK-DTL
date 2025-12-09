@@ -1,14 +1,15 @@
 import express from 'express';
 import { commentController } from '../controllers/commentController.js';
 import { isAuth } from '../middlewares/authMiddleware.js';
+import { uploadCommentImage } from '../middlewares/uploadMiddleware.js';
 
 const router = express.Router();
 
 // Public: get comments for a post
 router.get('/post/:postId', commentController.getCommentsByPostId);
 
-// Protected: create comment
-router.post('/', isAuth, commentController.createComment);
+// Protected: create comment with optional image
+router.post('/', isAuth, uploadCommentImage, commentController.createComment);
 
 // Protected: update or delete comment
 router.put('/:id', isAuth, commentController.updateComment);

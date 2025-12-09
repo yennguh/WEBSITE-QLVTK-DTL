@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Eye, Trash2, Check, X, Package, Send, RotateCcw, CircleAlert, HandHelping } from 'lucide-react';
+import { Search, Eye, Trash2, Check, X, Send, RotateCcw, CircleAlert, HandHelping, CheckCircle } from 'lucide-react';
 import { getImageUrl } from '../../utils/constant';
 import { fetchPosts, deletePost, approvePost, rejectPost, updateReturnStatus } from '../../api/posts.api';
 import AdminSection from './components/AdminSection';
@@ -12,9 +12,10 @@ export default function LostItemsList() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
 
-    // Chia bài đăng theo category
-    const lostPosts = posts.filter(p => p.category === 'lost');
-    const foundPosts = posts.filter(p => p.category === 'found');
+    // Chia bài đăng theo category và trạng thái
+    const lostPosts = posts.filter(p => p.category === 'lost' && p.returnStatus !== 'gửi trả');
+    const foundPosts = posts.filter(p => p.category === 'found' && p.returnStatus !== 'gửi trả');
+    const returnedPosts = posts.filter(p => p.returnStatus === 'gửi trả');
 
     const fetchData = async () => {
         setLoading(true);
@@ -41,7 +42,6 @@ export default function LostItemsList() {
 
     useEffect(() => {
         fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statusFilter, searchTerm]);
 
     const handleApprove = async (postId) => {
@@ -90,8 +90,21 @@ export default function LostItemsList() {
         }
     };
 
+    // Hàm lấy avatar URL
+    const getAvatarUrl = (item) => {
+        const avatar = item.authorAvatar || item.user?.avatar;
+        if (!avatar) return null;
+        if (avatar.startsWith('http') || avatar.startsWith('data:')) return avatar;
+        return getImageUrl(avatar);
+    };
+
+    // Hàm lấy tên hiển thị
+    const getDisplayName = (item) => {
+        return item.authorFullname || item.user?.fullname || 'Ẩn danh';
+    };
+
     // Component bảng dùng chung
-    const PostTable = ({ data, title, icon: Icon, headerColor }) => (
+    const PostTable = ({ data, title, icon: Icon, headerColor, showReturnActions = true }) => (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className={`p-4 border-b ${headerColor} flex items-center gap-3`}>
                 <Icon className="w-5 h-5" />
@@ -116,76 +129,89 @@ export default function LostItemsList() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {data.map((item) => (
-                                <tr key={item._id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="py-3 px-4">
-                                        <p className="font-medium text-gray-800 max-w-[150px] truncate">{item.title}</p>
-                                    </td>
-                                    <td className="py-3 px-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                                {item.user?.avatar ? (
-                                                    <img src={getImageUrl(item.user.avatar)} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <span className="text-white text-xs font-bold">{(item.authorFullname || item.user?.fullname || 'U').charAt(0).toUpperCase()}</span>
-                                                )}
+                            {data.map((item) => {
+                                const avatarUrl = getAvatarUrl(item);
+                                const displayName = getDisplayName(item);
+                                return (
+                                    <tr key={item._id} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="py-3 px-4">
+                                            <p className="font-medium text-gray-800 max-w-[180px] truncate">{item.title}</p>
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                    {avatarUrl ? (
+                                                        <img 
+                                                            src={avatarUrl} 
+                                                            alt={displayName} 
+                                                            className="w-full h-full object-cover" 
+                                                            onError={(e) => { 
+                                                                e.target.style.display = 'none';
+                                                                e.target.nextSibling && (e.target.nextSibling.style.display = 'flex');
+                                                            }}
+                                                        />
+                                                    ) : null}
+                                                    <span className={`text-white text-xs font-bold ${avatarUrl ? 'hidden' : ''}`}>
+                                                        {displayName.charAt(0).toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <span className="text-gray-700 text-sm">{displayName}</span>
                                             </div>
-                                            <span className="text-gray-700 text-sm">{item.authorFullname || item.user?.fullname || 'Ẩn danh'}</span>
-                                        </div>
-                                    </td>
-                                    <td className="py-3 px-4 text-gray-600 text-sm">{item.itemType}</td>
-                                    <td className="py-3 px-4 text-gray-600 text-sm">{item.location}</td>
-                                    <td className="py-3 px-4 text-gray-500 text-sm">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
-                                    <td className="py-3 px-4">
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                            item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                                            item.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                                            item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                                        }`}>
-                                            {item.status === 'approved' ? 'Đã duyệt' : item.status === 'pending' ? 'Chờ duyệt' : item.status === 'rejected' ? 'Từ chối' : 'Hoàn thành'}
-                                        </span>
-                                    </td>
-                                    <td className="py-3 px-4">
-                                        {item.returnStatus === 'gửi trả' ? (
-                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Đã trả</span>
-                                        ) : item.returnStatus === 'chưa tìm thấy' ? (
-                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Chưa thấy</span>
-                                        ) : (
-                                            <span className="text-gray-400 text-sm">—</span>
-                                        )}
-                                    </td>
-                                    <td className="py-3 px-4">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => navigate(`/admin/posts/${item._id}`)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Xem">
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                            {item.status === 'pending' && (
-                                                <>
-                                                    <button onClick={() => handleApprove(item._id)} className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Duyệt">
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleReject(item._id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Từ chối">
-                                                        <X className="w-4 h-4" />
-                                                    </button>
-                                                </>
+                                        </td>
+                                        <td className="py-3 px-4 text-gray-600 text-sm">{item.itemType}</td>
+                                        <td className="py-3 px-4 text-gray-600 text-sm">{item.location}</td>
+                                        <td className="py-3 px-4 text-gray-500 text-sm">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
+                                        <td className="py-3 px-4">
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                                item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                                item.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                                item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                                            }`}>
+                                                {item.status === 'approved' ? 'Đã duyệt' : item.status === 'pending' ? 'Chờ duyệt' : item.status === 'rejected' ? 'Từ chối' : 'Hoàn thành'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            {item.returnStatus === 'gửi trả' ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Đã trả</span>
+                                            ) : item.returnStatus === 'chưa tìm thấy' ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Chưa thấy</span>
+                                            ) : (
+                                                <span className="text-gray-400 text-sm">—</span>
                                             )}
-                                            {item.status === 'approved' && (
-                                                <>
-                                                    <button onClick={() => handleMarkReturned(item._id)} className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Đã trả">
-                                                        <Send className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleMarkNotFound(item._id)} className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg" title="Chưa thấy">
-                                                        <RotateCcw className="w-4 h-4" />
-                                                    </button>
-                                                </>
-                                            )}
-                                            <button onClick={() => handleDelete(item._id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Xóa">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button onClick={() => navigate(`/admin/posts/${item._id}`)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Xem">
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                {item.status === 'pending' && (
+                                                    <>
+                                                        <button onClick={() => handleApprove(item._id)} className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Duyệt">
+                                                            <Check className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => handleReject(item._id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Từ chối">
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {showReturnActions && item.status === 'approved' && item.returnStatus !== 'gửi trả' && (
+                                                    <>
+                                                        <button onClick={() => handleMarkReturned(item._id)} className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Đã trả">
+                                                            <Send className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => handleMarkNotFound(item._id)} className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg" title="Chưa thấy">
+                                                            <RotateCcw className="w-4 h-4" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                                <button onClick={() => handleDelete(item._id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Xóa">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -194,7 +220,7 @@ export default function LostItemsList() {
     );
 
     return (
-        <AdminSection title="Danh sách đồ thất lạc">
+        <AdminSection title="Bài đăng của User" description="Quản lý bài đăng do người dùng tạo">
             <div className="space-y-6">
                 {/* Search and Filters */}
                 <div className="flex flex-wrap items-center gap-4">
@@ -244,6 +270,15 @@ export default function LostItemsList() {
                             title="✨ Đồ nhặt được" 
                             icon={HandHelping}
                             headerColor="bg-gradient-to-r from-green-500 to-teal-500 text-white"
+                        />
+
+                        {/* Bảng Đã trả đồ */}
+                        <PostTable 
+                            data={returnedPosts} 
+                            title="✅ Đã trả đồ" 
+                            icon={CheckCircle}
+                            headerColor="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                            showReturnActions={false}
                         />
                     </>
                 )}

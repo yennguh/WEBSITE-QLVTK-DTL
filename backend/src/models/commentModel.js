@@ -8,6 +8,7 @@ const COMMENT_COLLECTION_SCHEMA = Joi.object({
     postId: Joi.string().required(),
     userId: Joi.string().required(),
     content: Joi.string().required(),
+    image: Joi.string().allow(null, '').default(null), // Hình ảnh đính kèm bình luận
     parentId: Joi.string().allow(null).default(null), // ID của comment cha (nếu là reply)
     likes: Joi.array().items(Joi.string()).default([]), // Danh sách userId đã like
     createdAt: Joi.date().timestamp('javascript').default(Date.now),
@@ -70,6 +71,7 @@ const findCommentsByPostId = async (postId, { page = 1, limit = 50 } = {}) => {
             {
                 $project: {
                     content: 1,
+                    image: 1,
                     postId: 1,
                     userId: 1,
                     parentId: 1,

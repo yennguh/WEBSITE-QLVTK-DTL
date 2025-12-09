@@ -51,7 +51,7 @@ const RegisterPage = () => {
     return (
         <div className="min-h-screen flex">
             {/* Left Side - Branding */}
-            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 relative overflow-hidden">
+            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 relative overflow-hidden">
                 <div className="absolute inset-0 bg-black/10"></div>
                 <div className="absolute -top-24 -left-24 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
                 <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
@@ -61,26 +61,26 @@ const RegisterPage = () => {
                         <img src="/logo.jpg" alt="Logo" className="w-24 h-24 rounded-xl object-cover" />
                     </div>
                     <h1 className="text-4xl font-bold text-center mb-4">Đại học Trà Vinh</h1>
-                    <p className="text-xl text-emerald-100 text-center mb-8">Tham gia cộng đồng ngay hôm nay</p>
+                    <p className="text-xl text-purple-100 text-center mb-8">Tham gia cộng đồng ngay hôm nay</p>
                     
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 max-w-sm">
                         <h3 className="font-semibold text-lg mb-4">Lợi ích khi đăng ký:</h3>
                         <div className="space-y-3">
                             <div className="flex items-center gap-3">
-                                <CheckCircle className="w-5 h-5 text-emerald-300" />
-                                <span className="text-emerald-50">Đăng tin tìm đồ thất lạc</span>
+                                <CheckCircle className="w-5 h-5 text-purple-300" />
+                                <span className="text-purple-50">Đăng tin tìm đồ thất lạc</span>
                             </div>
                             <div className="flex items-center gap-3">
-                                <CheckCircle className="w-5 h-5 text-emerald-300" />
-                                <span className="text-emerald-50">Nhận thông báo khi có đồ phù hợp</span>
+                                <CheckCircle className="w-5 h-5 text-purple-300" />
+                                <span className="text-purple-50">Nhận thông báo khi có đồ phù hợp</span>
                             </div>
                             <div className="flex items-center gap-3">
-                                <CheckCircle className="w-5 h-5 text-emerald-300" />
-                                <span className="text-emerald-50">Liên hệ trực tiếp với người đăng</span>
+                                <CheckCircle className="w-5 h-5 text-purple-300" />
+                                <span className="text-purple-50">Liên hệ trực tiếp với người đăng</span>
                             </div>
                             <div className="flex items-center gap-3">
-                                <CheckCircle className="w-5 h-5 text-emerald-300" />
-                                <span className="text-emerald-50">Quản lý bài đăng cá nhân</span>
+                                <CheckCircle className="w-5 h-5 text-purple-300" />
+                                <span className="text-purple-50">Quản lý bài đăng cá nhân</span>
                             </div>
                         </div>
                     </div>
@@ -111,7 +111,7 @@ const RegisterPage = () => {
                                         {...register("fullname", { required: "Họ tên là bắt buộc" })}
                                         type="text"
                                         placeholder="Nguyễn Văn A"
-                                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                                     />
                                 </div>
                                 {errors.fullname && <p className="text-red-500 text-sm mt-1">{errors.fullname.message}</p>}
@@ -128,7 +128,7 @@ const RegisterPage = () => {
                                         })}
                                         type="email"
                                         placeholder="email@example.com"
-                                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                                     />
                                 </div>
                                 {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
@@ -145,7 +145,7 @@ const RegisterPage = () => {
                                         })}
                                         type="tel"
                                         placeholder="0912345678"
-                                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                                     />
                                 </div>
                                 {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>}
@@ -162,7 +162,7 @@ const RegisterPage = () => {
                                         })}
                                         type={passwordVisible ? "text" : "password"}
                                         placeholder="••••••••"
-                                        className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                                     />
                                     <button
                                         type="button"
@@ -196,7 +196,7 @@ const RegisterPage = () => {
                                         })}
                                         type={confirmPasswordVisible ? "text" : "password"}
                                         placeholder="••••••••"
-                                        className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                                        className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                                     />
                                     <button
                                         type="button"
@@ -212,7 +212,7 @@ const RegisterPage = () => {
                             <button
                                 type="submit"
                                 disabled={!isValid || loading}
-                                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+                                className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
                             >
                                 {loading && <Loader2 className="w-5 h-5 animate-spin" />}
                                 {loading ? 'Đang đăng ký...' : 'Đăng ký'}
@@ -221,7 +221,7 @@ const RegisterPage = () => {
 
                         <p className="text-center mt-6 text-gray-600">
                             Đã có tài khoản?{' '}
-                            <Link to="/login" className="text-emerald-600 hover:text-emerald-700 font-semibold">Đăng nhập</Link>
+                            <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-semibold">Đăng nhập</Link>
                         </p>
                     </div>
                 </div>

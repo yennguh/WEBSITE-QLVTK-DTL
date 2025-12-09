@@ -17,7 +17,10 @@ const Profile = () => {
     const [success, setSuccess] = useState('');
     const [avatarPreview, setAvatarPreview] = useState(null);
     const [avatarFile, setAvatarFile] = useState(null);
+    const [coverPreview, setCoverPreview] = useState(null);
+    const [coverFile, setCoverFile] = useState(null);
     const fileInputRef = useRef(null);
+    const coverInputRef = useRef(null);
 
     const { register, handleSubmit, formState: { errors }, reset } = useForm({
         mode: "onTouched"
@@ -42,6 +45,10 @@ const Profile = () => {
                 // Set avatar preview nếu có
                 if (userData.avatar) {
                     setAvatarPreview(getImageUrl(userData.avatar));
+                }
+                // Set cover preview nếu có
+                if (userData.coverPhoto) {
+                    setCoverPreview(getImageUrl(userData.coverPhoto));
                 }
             }
         } catch (error) {
@@ -83,19 +90,41 @@ const Profile = () => {
         }
     };
 
+    const handleCoverChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (!file.type.startsWith('image/')) {
+                setError('Vui lòng chọn file ảnh');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                setError('Kích thước ảnh không được vượt quá 5MB');
+                return;
+            }
+            setCoverFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setCoverPreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+            setError('');
+        }
+    };
+
     const onSubmit = async (data) => {
         setError('');
         setSuccess('');
 
         try {
-            // Tạo FormData nếu có avatar file
+            // Tạo FormData nếu có avatar hoặc cover file
             let payload;
-            if (avatarFile) {
+            if (avatarFile || coverFile) {
                 payload = new FormData();
                 payload.append('fullname', data.fullname);
                 payload.append('email', data.email);
                 if (data.phone) payload.append('phone', data.phone);
-                payload.append('avatar', avatarFile);
+                if (avatarFile) payload.append('avatar', avatarFile);
+                if (coverFile) payload.append('coverPhoto', coverFile);
             } else {
                 payload = {
                     fullname: data.fullname,
@@ -120,6 +149,12 @@ const Profile = () => {
                 } else {
                     setAvatarPreview(null);
                 }
+                // Update cover preview từ database
+                if (fetched.coverPhoto) {
+                    setCoverPreview(getImageUrl(fetched.coverPhoto));
+                } else {
+                    setCoverPreview(null);
+                }
             } else {
                 // Fallback: dùng data từ response nếu có
                 const updatedUser = result?.data || result?.user || result;
@@ -136,6 +171,7 @@ const Profile = () => {
                 }
             }
             setAvatarFile(null);
+            setCoverFile(null);
             setSuccess(result?.message || 'Cập nhật thông tin thành công!');
             setIsEditing(false);
         } catch (err) {
@@ -188,12 +224,27 @@ const Profile = () => {
                 )}
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    {/* Header với gradient */}
-                    <div className="bg-gradient-to-r from-blue-500 to-violet-500 h-24"></div>
+                    {/* Cover Photo */}
+                    <div className="relative h-48 sm:h-56">
+                        {coverPreview ? (
+                            <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-r from-blue-500 to-violet-500"></div>
+                        )}
+                        {isEditing && (
+                            <label className="absolute bottom-3 right-3 cursor-pointer">
+                                <div className="flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-lg shadow-md transition">
+                                    <Camera className="w-4 h-4 text-gray-700" />
+                                    <span className="text-sm text-gray-700">Đổi ảnh bìa</span>
+                                </div>
+                                <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverChange} className="hidden" />
+                            </label>
+                        )}
+                    </div>
                     
                     <div className="px-8 pb-8">
                         {/* Avatar và info */}
-                        <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between -mt-12 mb-8">
+                        <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between -mt-16 mb-8">
                             <div className="flex flex-col sm:flex-row items-center gap-5">
                                 {/* Avatar */}
                                 <div className="relative">
@@ -201,7 +252,7 @@ const Profile = () => {
                                         <img 
                                             src={avatarPreview} 
                                             alt="Avatar" 
-                                            className="w-28 h-28 rounded-2xl object-cover border-4 border-white shadow-lg"
+                                            className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-lg"
                                             onError={(e) => {
                                                 try {
                                                     if (e && e.target) {
@@ -214,8 +265,8 @@ const Profile = () => {
                                         />
                                     ) : null}
                                     {!avatarPreview && (
-                                        <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-blue-100 to-violet-100 flex items-center justify-center border-4 border-white shadow-lg">
-                                            <User className="w-12 h-12 text-blue-500" />
+                                        <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-blue-100 to-violet-100 flex items-center justify-center border-4 border-white shadow-lg">
+                                            <User className="w-14 h-14 text-blue-500" />
                                         </div>
                                     )}
                                     {isEditing && (
@@ -373,10 +424,11 @@ const Profile = () => {
                                         setError('');
                                         setSuccess('');
                                         setAvatarFile(null);
+                                        setCoverFile(null);
                                         setAvatarPreview(user?.avatar ? getImageUrl(user.avatar) : null);
-                                        if (fileInputRef.current) {
-                                            fileInputRef.current.value = '';
-                                        }
+                                        setCoverPreview(user?.coverPhoto ? getImageUrl(user.coverPhoto) : null);
+                                        if (fileInputRef.current) fileInputRef.current.value = '';
+                                        if (coverInputRef.current) coverInputRef.current.value = '';
                                     }}
                                     className="px-6 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
                                 >

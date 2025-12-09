@@ -57,7 +57,7 @@ Router.get('/google/callback', async (req, res) => {
         let user = await userServices.GetUserByEmail(email);
 
         if (!user) {
-            // Create new user
+            // Create new user with Google info
             const newUserData = {
                 email,
                 fullname: name,
@@ -69,16 +69,19 @@ Router.get('/google/callback', async (req, res) => {
             };
             await userServices.CreatedUserGoogle(newUserData);
             user = await userServices.GetUserByEmail(email);
-        } else if (!user.googleId) {
-            // Link Google account to existing user
+        } else {
+            // Update Google info for existing user (avatar, googleId)
             await userServices.UpdateUserGoogleId(user._id, googleId, picture);
+            user = await userServices.GetUserByEmail(email);
         }
 
-        // Generate JWT tokens
+        // Generate JWT tokens with full user info
         const tokenPayload = {
             _id: user._id.toString(),
             email: user.email,
             fullname: user.fullname,
+            avatar: user.avatar,
+            phone: user.phone,
             roles: user.roles
         };
 

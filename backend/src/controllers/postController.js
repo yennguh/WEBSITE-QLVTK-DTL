@@ -11,9 +11,13 @@ const createPost = async (req, res, next) => {
             return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Unauthorized' });
         }
 
+        const isAdmin = decoded.roles?.includes('admin') || false;
+
         let payload = {
             ...req.body,
-            userId: decoded._id
+            userId: decoded._id,
+            // Admin đăng bài trực tiếp được duyệt, user thường phải chờ duyệt
+            status: isAdmin ? (req.body.status || 'approved') : 'pending'
         };
 
         // Capture author fullname and avatar
@@ -25,12 +29,11 @@ const createPost = async (req, res, next) => {
             }
         } catch (error) {
             console.log('Error fetching user info:', error);
-            // Continue even if user fetch fails
         }
 
         const result = await postServices.createPost(payload);
         res.status(StatusCodes.CREATED).json({
-            message: 'Post created successfully',
+            message: isAdmin ? 'Post created and approved successfully' : 'Post created successfully, waiting for approval',
             data: result
         });
     } catch (error) {
@@ -84,22 +87,32 @@ const updatePost = async (req, res, next) => {
         }
 
         // Check if user is owner or admin
-        if (post.userId !== decoded._id && !decoded.roles?.includes('admin')) {
+        const isAdmin = decoded.roles?.includes('admin');
+        const isOwner = post.userId === decoded._id;
+        
+        if (!isOwner && !isAdmin) {
             return res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to update this post' });
         }
 
-        let updatePayload = req.body;
+        let updatePayload = { ...req.body };
 
-        // Capture latest author fullname and avatar
-        try {
-            const user = await userServices.GetUserInfor(decoded._id);
-            if (user) {
-                updatePayload.authorFullname = user.fullname || '';
-                updatePayload.authorAvatar = user.avatar || '';
+        // QUAN TRỌNG: Admin không được thay đổi thông tin người đăng
+        // Xóa các trường không được phép thay đổi
+        delete updatePayload.userId;
+        delete updatePayload.authorFullname;
+        delete updatePayload.authorAvatar;
+
+        // Chỉ cập nhật author info nếu là chủ bài đăng (không phải admin đang sửa bài của người khác)
+        if (isOwner) {
+            try {
+                const user = await userServices.GetUserInfor(decoded._id);
+                if (user) {
+                    updatePayload.authorFullname = user.fullname || '';
+                    updatePayload.authorAvatar = user.avatar || '';
+                }
+            } catch (error) {
+                console.log('Error fetching user info:', error);
             }
-        } catch (error) {
-            console.log('Error fetching user info:', error);
-            // Continue even if user fetch fails
         }
 
         const result = await postServices.updatePost(id, updatePayload);

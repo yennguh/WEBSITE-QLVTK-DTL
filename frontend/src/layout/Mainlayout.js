@@ -1,7 +1,6 @@
 import { Outlet } from "react-router-dom";
 import Header from "./Header";
 import Footer from "./Footer";
-import Home from "../page/home/Home";
 
 const MainLayout = () => {
     return (
@@ -13,11 +12,7 @@ const MainLayout = () => {
 
                 {/* Main content area */}
                 <main className="site-content" style={{ flex: 1 }}>
-                    {/* keep the Home hero/slider above the routed content */}
-                    <Home />
-                    <div style={{ marginTop: 16 }}>
-                        <Outlet />
-                    </div>
+                    <Outlet />
                 </main>
             </div>
 

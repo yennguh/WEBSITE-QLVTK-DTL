@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Trophy, Medal, Award, Star, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Trophy, Star, TrendingUp, Crown, ArrowRight } from 'lucide-react';
 import { fetchTopPosters } from '../../api/posts.api';
 import { TopPostersGridSkeleton } from '../../core/LoadingSpinner';
+import { getImageUrl } from '../../utils/constant';
 
-const TopPosters = () => {
+const TopPosters = ({ compact = false }) => {
+    const navigate = useNavigate();
     const [topPosters, setTopPosters] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -11,11 +14,7 @@ const TopPosters = () => {
     useEffect(() => {
         const loadTopPosters = async () => {
             try {
-                console.log('Fetching top posters...');
                 const result = await fetchTopPosters();
-                console.log('TopPosters API result:', result); // Debug log
-                
-                // Kiểm tra nhiều cấu trúc response có thể có
                 let data = null;
                 if (result?.data && Array.isArray(result.data)) {
                     data = result.data;
@@ -24,68 +23,128 @@ const TopPosters = () => {
                 } else if (result?.data?.data && Array.isArray(result.data.data)) {
                     data = result.data.data;
                 }
-                
                 if (data && data.length > 0) {
-                    console.log('Found top posters:', data.length);
-                    setTopPosters(data.slice(0, 5)); // Top 5
-                } else {
-                    console.log('No top posters data available. Result structure:', result);
+                    setTopPosters(data.slice(0, compact ? 3 : 5));
                 }
-            } catch (error) {
-                console.error('Error loading top posters:', error);
-                console.error('Error details:', error.response?.data || error.message);
-                setError(error.response?.data?.message || error.message || 'Không thể tải dữ liệu');
+            } catch (err) {
+                setError(err.message || 'Không thể tải dữ liệu');
             } finally {
                 setLoading(false);
             }
         };
         loadTopPosters();
-    }, []);
+    }, [compact]);
 
-    const getRankIcon = (index) => {
-        switch (index) {
-            case 0:
-                return <Trophy className="w-6 h-6 text-yellow-500" />;
-            case 1:
-                return <Medal className="w-6 h-6 text-gray-400" />;
-            case 2:
-                return <Award className="w-6 h-6 text-amber-600" />;
-            default:
-                return <Star className="w-5 h-5 text-blue-500" />;
+    const handleViewUserPosts = (userId) => {
+        if (userId) {
+            navigate(`/do-that-lac?userId=${userId}`);
         }
     };
 
-    const getRankBadge = (index) => {
+    const getRankStyle = (index) => {
         switch (index) {
-            case 0:
-                return 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-white';
-            case 1:
-                return 'bg-gradient-to-r from-gray-300 to-gray-400 text-white';
-            case 2:
-                return 'bg-gradient-to-r from-amber-500 to-amber-700 text-white';
-            default:
-                return 'bg-gradient-to-r from-blue-400 to-blue-600 text-white';
+            case 0: return { bg: 'from-yellow-400 to-orange-500', badge: 'bg-yellow-500' };
+            case 1: return { bg: 'from-gray-300 to-gray-500', badge: 'bg-gray-400' };
+            case 2: return { bg: 'from-amber-500 to-orange-600', badge: 'bg-amber-600' };
+            default: return { bg: 'from-blue-500 to-indigo-600', badge: 'bg-blue-500' };
         }
     };
 
-    // Hiển thị loading state
+    // Compact version for HomePage - white background like full version
+    if (compact) {
+        if (loading) {
+            return (
+                <section className="py-8 bg-gray-50">
+                    <div className="max-w-4xl mx-auto px-6">
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800 flex items-center justify-center gap-2">
+                                <Trophy className="w-6 h-6 text-yellow-500" /> Bảng Khen Thưởng
+                            </h2>
+                        </div>
+                        <div className="flex justify-center gap-4">
+                            {[1,2,3].map(i => (
+                                <div key={i} className="w-24 h-32 bg-gray-200 rounded-xl animate-pulse"></div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            );
+        }
+
+        if (error || !topPosters || topPosters.length === 0) return null;
+
+        return (
+            <section className="py-12 bg-gray-50">
+                <div className="max-w-5xl mx-auto px-6">
+                    <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                            <Trophy className="w-8 h-8 text-yellow-500" /> Top đóng góp
+                        </h2>
+                        <button onClick={() => navigate('/khen-thuong')} className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-base font-semibold">
+                            Xem tất cả <ArrowRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div className="flex justify-center items-end gap-6">
+                        {topPosters[1] && (
+                            <div onClick={() => handleViewUserPosts(topPosters[1].userId)} className="cursor-pointer group">
+                                <div className="bg-white rounded-2xl p-6 text-center border border-gray-200 hover:border-gray-300 hover:shadow-xl transition-all min-w-[140px]">
+                                    <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-gray-300 to-gray-500 p-0.5 mb-3 group-hover:scale-110 transition-transform shadow-lg">
+                                        <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
+                                            {topPosters[1].user?.avatar ? <img src={getImageUrl(topPosters[1].user.avatar)} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl font-bold text-gray-500">{topPosters[1].user?.fullname?.charAt(0) || 'U'}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="bg-gray-400 text-white text-sm px-3 py-1 rounded-full mb-2 inline-block font-bold">#2</div>
+                                    <p className="text-gray-800 font-semibold truncate">{topPosters[1].user?.fullname || 'Ẩn danh'}</p>
+                                    <p className="text-blue-600 font-bold text-xl mt-1">{topPosters[1].totalPosts} bài</p>
+                                </div>
+                            </div>
+                        )}
+                        {topPosters[0] && (
+                            <div onClick={() => handleViewUserPosts(topPosters[0].userId)} className="cursor-pointer group -mt-6">
+                                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-8 text-center border-2 border-yellow-300 hover:border-yellow-400 hover:shadow-2xl transition-all min-w-[180px]">
+                                    <Crown className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
+                                    <div className="w-28 h-28 mx-auto rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 p-1 mb-3 group-hover:scale-110 transition-transform shadow-xl">
+                                        <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
+                                            {topPosters[0].user?.avatar ? <img src={getImageUrl(topPosters[0].user.avatar)} alt="" className="w-full h-full object-cover" /> : <span className="text-3xl font-bold text-amber-500">{topPosters[0].user?.fullname?.charAt(0) || 'U'}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="bg-yellow-500 text-white text-sm px-3 py-1 rounded-full mb-2 inline-block font-bold">#1</div>
+                                    <p className="text-gray-800 font-bold text-lg truncate">{topPosters[0].user?.fullname || 'Ẩn danh'}</p>
+                                    <p className="text-yellow-600 font-bold text-2xl mt-1">{topPosters[0].totalPosts} bài</p>
+                                </div>
+                            </div>
+                        )}
+                        {topPosters[2] && (
+                            <div onClick={() => handleViewUserPosts(topPosters[2].userId)} className="cursor-pointer group">
+                                <div className="bg-white rounded-2xl p-6 text-center border border-gray-200 hover:border-amber-300 hover:shadow-xl transition-all min-w-[140px]">
+                                    <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-500 to-orange-600 p-0.5 mb-3 group-hover:scale-110 transition-transform shadow-lg">
+                                        <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
+                                            {topPosters[2].user?.avatar ? <img src={getImageUrl(topPosters[2].user.avatar)} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl font-bold text-amber-600">{topPosters[2].user?.fullname?.charAt(0) || 'U'}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="bg-amber-600 text-white text-sm px-3 py-1 rounded-full mb-2 inline-block font-bold">#3</div>
+                                    <p className="text-gray-800 font-semibold truncate">{topPosters[2].user?.fullname || 'Ẩn danh'}</p>
+                                    <p className="text-blue-600 font-bold text-xl mt-1">{topPosters[2].totalPosts} bài</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+
+    // Full version - white background
     if (loading) {
         return (
-            <div className="w-full py-8 px-4 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
-                <div className="max-w-6xl mx-auto">
-                    <div className="text-center mb-8">
-                        <div className="flex items-center justify-center gap-3 mb-4">
-                            <div className="p-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full shadow-lg">
-                                <Trophy className="w-8 h-8 text-white" />
-                            </div>
-                            <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                                Bảng Khen Thưởng
-                            </h2>
-                            <div className="p-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full shadow-lg">
-                                <TrendingUp className="w-8 h-8 text-white" />
-                            </div>
-                        </div>
-                        <p className="text-gray-600 text-lg">Những thành viên tích cực đóng góp cho cộng đồng</p>
+            <div className="w-full py-16 bg-gray-50">
+                <div className="max-w-6xl mx-auto px-6">
+                    <div className="text-center mb-12">
+                        <h2 className="text-4xl font-black text-gray-800 flex items-center justify-center gap-4">
+                            <Trophy className="w-10 h-10 text-yellow-500" /> Bảng Khen Thưởng <Trophy className="w-10 h-10 text-yellow-500" />
+                        </h2>
+                        <p className="text-gray-500 text-lg mt-2">Những thành viên tích cực nhất cộng đồng TVU</p>
                     </div>
                     <TopPostersGridSkeleton count={5} />
                 </div>
@@ -93,152 +152,91 @@ const TopPosters = () => {
         );
     }
 
-    // Hiển thị message nếu có lỗi - vẫn hiển thị giao diện
-    if (error) {
+    if (error || !topPosters || topPosters.length === 0) {
         return (
-            <div className="w-full py-8 px-4 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
-                <div className="max-w-6xl mx-auto">
-                    <div className="text-center">
-                        <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-                        <h2 className="text-2xl font-bold text-gray-600 mb-2">Bảng Khen Thưởng</h2>
-                        <p className="text-gray-500">Chưa có dữ liệu thống kê</p>
-                    </div>
+            <div className="w-full py-16 bg-gray-50">
+                <div className="max-w-6xl mx-auto px-6 text-center">
+                    <Trophy className="w-20 h-20 text-yellow-400 mx-auto mb-6" />
+                    <h2 className="text-3xl font-bold text-gray-800 mb-3">Bảng Khen Thưởng</h2>
+                    <p className="text-gray-500">Chưa có dữ liệu thống kê</p>
                 </div>
             </div>
         );
     }
 
-    // Hiển thị message nếu không có data
-    if (!topPosters || topPosters.length === 0) {
-        return (
-            <div className="w-full py-8 px-4 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
-                <div className="max-w-6xl mx-auto">
-                    <div className="text-center">
-                        <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h2 className="text-2xl font-bold text-gray-600 mb-2">Bảng Khen Thưởng</h2>
-                        <p className="text-gray-500">Chưa có dữ liệu thống kê. Hãy đăng bài để trở thành người đăng bài xuất sắc!</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const topOne = topPosters[0];
+    const others = topPosters.slice(1);
 
     return (
-        <div className="w-full py-8 px-4 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
-            <div className="max-w-6xl mx-auto">
-                {/* Header */}
-                <div className="text-center mb-8">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                        <div className="p-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full shadow-lg">
-                            <Trophy className="w-8 h-8 text-white" />
-                        </div>
-                        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                            Bảng Khen Thưởng
-                        </h2>
-                        <div className="p-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full shadow-lg">
-                            <TrendingUp className="w-8 h-8 text-white" />
+        <div className="w-full py-16 bg-gray-50">
+            <div className="max-w-6xl mx-auto px-6">
+                <div className="text-center mb-12">
+                    <h2 className="text-4xl font-black text-gray-800 flex items-center justify-center gap-4 mb-2">
+                        <Trophy className="w-10 h-10 text-yellow-500" /> 
+                        <span className="bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">Bảng Khen Thưởng</span>
+                        <Trophy className="w-10 h-10 text-yellow-500" />
+                    </h2>
+                    <p className="text-gray-500 text-lg">Click vào avatar để xem bài đăng của họ</p>
+                </div>
+
+                {/* Top 1 */}
+                <div className="mb-10">
+                    <div onClick={() => handleViewUserPosts(topOne.userId)} className="max-w-md mx-auto cursor-pointer group">
+                        <div className="relative bg-gradient-to-br from-yellow-50 to-orange-50 rounded-3xl p-8 border-2 border-yellow-200 hover:border-yellow-400 hover:shadow-xl transition-all">
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+                                <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg">
+                                    <Crown className="w-6 h-6 text-white" />
+                                </div>
+                            </div>
+                            <div className="absolute top-4 right-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-1 rounded-full font-bold shadow-md">#1</div>
+                            <div className="flex flex-col items-center text-center pt-4">
+                                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 p-1 mb-4 group-hover:scale-110 transition-transform shadow-xl">
+                                    <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
+                                        {topOne.user?.avatar ? <img src={getImageUrl(topOne.user.avatar)} alt="" className="w-full h-full object-cover" /> : <span className="text-4xl font-black text-amber-500">{topOne.user?.fullname?.charAt(0) || 'U'}</span>}
+                                    </div>
+                                </div>
+                                <h3 className="text-2xl font-bold text-gray-800 mb-1">{topOne.user?.fullname || 'Ẩn danh'}</h3>
+                                <p className="text-gray-500 text-sm mb-4">{topOne.user?.email || ''}</p>
+                                <div className="bg-white rounded-xl px-6 py-3 flex items-center gap-3 shadow-md border border-gray-100">
+                                    <TrendingUp className="w-5 h-5 text-yellow-500" />
+                                    <span className="text-gray-600">Tổng bài đăng:</span>
+                                    <span className="text-3xl font-black text-yellow-500">{topOne.totalPosts}</span>
+                                </div>
+                                <p className="mt-4 text-yellow-600 font-semibold flex items-center gap-1">
+                                    <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" /> Người đăng bài xuất sắc nhất <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                                </p>
+                            </div>
                         </div>
                     </div>
-                    <p className="text-gray-600 text-lg">Những thành viên tích cực đóng góp cho cộng đồng</p>
                 </div>
 
-                {/* Top Posters Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {topPosters.map((poster, index) => (
-                        <div
-                            key={poster.userId || index}
-                            className={`relative bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
-                                index === 0 ? 'md:col-span-2 lg:col-span-1 lg:row-span-1' : ''
-                            }`}
-                        >
-                            {/* Rank Badge */}
-                            <div className={`absolute top-4 right-4 ${getRankBadge(index)} px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center gap-2`}>
-                                {getRankIcon(index)}
-                                <span>#{index + 1}</span>
-                            </div>
-
-                            {/* Gradient Background for Top 3 */}
-                            {index < 3 && (
-                                <div className={`absolute top-0 left-0 right-0 h-2 ${
-                                    index === 0 ? 'bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600' :
-                                    index === 1 ? 'bg-gradient-to-r from-gray-300 via-gray-400 to-gray-500' :
-                                    'bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700'
-                                }`}></div>
-                            )}
-
-                            <div className="p-6">
-                                {/* Avatar & Name */}
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-lg ${
-                                        index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
-                                        index === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-400' :
-                                        index === 2 ? 'bg-gradient-to-r from-amber-500 to-amber-700' :
-                                        'bg-gradient-to-r from-blue-400 to-blue-600'
-                                    }`}>
-                                        {poster.user?.fullname?.charAt(0)?.toUpperCase() || 'U'}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="text-xl font-bold text-gray-800 mb-1">
-                                            {poster.user?.fullname || 'Ẩn danh'}
-                                        </h3>
-                                        <p className="text-sm text-gray-500 truncate">
-                                            {poster.user?.email || 'Không có email'}
-                                        </p>
+                {/* Others */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {others.map((poster, idx) => {
+                        const index = idx + 1;
+                        const style = getRankStyle(index);
+                        return (
+                            <div key={poster.userId || index} onClick={() => handleViewUserPosts(poster.userId)} className="cursor-pointer group">
+                                <div className="relative bg-white rounded-2xl p-5 border border-gray-200 hover:border-blue-300 hover:shadow-lg hover:scale-105 transition-all">
+                                    <div className={`absolute -top-2 -right-2 w-8 h-8 ${style.badge} rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md`}>#{index + 1}</div>
+                                    <div className="flex flex-col items-center text-center">
+                                        <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${style.bg} p-0.5 mb-3 group-hover:scale-110 transition-transform shadow-lg`}>
+                                            <div className="w-full h-full rounded-xl overflow-hidden bg-white flex items-center justify-center">
+                                                {poster.user?.avatar ? <img src={getImageUrl(poster.user.avatar)} alt="" className="w-full h-full object-cover" /> : <span className="text-xl font-bold text-gray-600">{poster.user?.fullname?.charAt(0) || 'U'}</span>}
+                                            </div>
+                                        </div>
+                                        <h3 className="text-gray-800 font-semibold truncate w-full text-sm">{poster.user?.fullname || 'Ẩn danh'}</h3>
+                                        <p className="text-2xl font-black text-blue-600 mt-2">{poster.totalPosts}</p>
+                                        <p className="text-gray-400 text-xs">bài đăng</p>
                                     </div>
                                 </div>
-
-                                {/* Stats */}
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-                                        <div className="flex items-center gap-2">
-                                            <TrendingUp className="w-5 h-5 text-blue-600" />
-                                            <span className="text-gray-700 font-medium">Tổng bài đăng</span>
-                                        </div>
-                                        <span className="text-2xl font-bold text-blue-600">
-                                            {poster.totalPosts}
-                                        </span>
-                                    </div>
-
-                                    {poster.latestPostAt && (
-                                        <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                                            <span className="font-medium">Bài gần nhất: </span>
-                                            {new Date(poster.latestPostAt).toLocaleDateString('vi-VN', {
-                                                day: '2-digit',
-                                                month: '2-digit',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })}
-                                        </div>
-                                    )}
-
-                                    {poster.user?.phone && (
-                                        <div className="text-xs text-gray-500">
-                                            📞 {poster.user.phone}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Special Badge for Top 1 */}
-                                {index === 0 && (
-                                    <div className="mt-4 pt-4 border-t border-yellow-200">
-                                        <div className="flex items-center justify-center gap-2 text-yellow-600 font-semibold">
-                                            <Star className="w-5 h-5 fill-yellow-500" />
-                                            <span>Người đăng bài xuất sắc nhất</span>
-                                            <Star className="w-5 h-5 fill-yellow-500" />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
-                {/* Footer Note */}
-                <div className="text-center mt-8">
-                    <p className="text-gray-500 text-sm">
-                        💝 Cảm ơn các thành viên đã tích cực đóng góp cho cộng đồng!
-                    </p>
+                <div className="text-center mt-10">
+                    <p className="text-gray-500">💝 Cảm ơn các thành viên đã tích cực đóng góp!</p>
                 </div>
             </div>
         </div>
@@ -246,4 +244,3 @@ const TopPosters = () => {
 };
 
 export default TopPosters;
-

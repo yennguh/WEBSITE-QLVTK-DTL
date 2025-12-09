@@ -1,324 +1,224 @@
-import React, { useState, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, MapPin, FileText, Image, Send, X, Plus } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { Upload, X, AlertCircle, MapPin, Phone, Mail, FileText, Tag, Image, ChevronRight, Sparkles, CheckCircle, Shield } from 'lucide-react';
 import { createPost } from '../../api/posts.api';
-import { AuthContext } from '../../core/AuthContext';
 import AdminSection from './components/AdminSection';
 
 export default function LostItemCreate() {
     const navigate = useNavigate();
-    const { user } = useContext(AuthContext);
-    const [loading, setLoading] = useState(false);
     const [images, setImages] = useState([]);
-    const [previewImages, setPreviewImages] = useState([]);
-    
-    const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        category: 'found', // Admin thường nhập đồ nhặt được
-        itemType: '',
-        location: '',
-        contactPhone: '',
-        contactEmail: ''
-    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [currentStep, setCurrentStep] = useState(1);
 
-    const locations = [
-        'Thư viện',
-        'Căn tin',
-        'Nhà xe',
-        'Sân trường',
-        'Phòng học A',
-        'Phòng học B',
-        'Phòng học C',
-        'Phòng học D',
-        'Nhà thi đấu',
-        'Ký túc xá',
-        'Cổng trường',
-        'Khác'
-    ];
-
-    const itemTypes = [
-        'Điện thoại',
-        'Ví/Bóp',
-        'Chìa khóa',
-        'Thẻ sinh viên',
-        'Laptop',
-        'Tai nghe',
-        'Sách vở',
-        'Quần áo',
-        'Túi xách',
-        'Đồng hồ',
-        'Kính mắt',
-        'Khác'
-    ];
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
+    const { register, handleSubmit, formState: { errors }, watch, trigger } = useForm({ mode: "onTouched" });
+    const category = watch('category', 'found');
 
     const handleImageChange = (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length + images.length > 5) {
-            alert('Chỉ được tải tối đa 5 ảnh');
-            return;
-        }
-
-        const newImages = [...images, ...files];
-        setImages(newImages);
-
-        // Tạo preview
-        const newPreviews = files.map(file => URL.createObjectURL(file));
-        setPreviewImages(prev => [...prev, ...newPreviews]);
+        const file = e.target.files[0];
+        if (!file) return;
+        if (images.length >= 5) { setError('Tối đa 5 ảnh'); e.target.value = ''; return; }
+        if (file.size > 2 * 1024 * 1024) { setError('Mỗi ảnh tối đa 2MB'); e.target.value = ''; return; }
+        if (!file.type.startsWith('image/')) { setError('Vui lòng chọn file ảnh'); e.target.value = ''; return; }
+        setError('');
+        const reader = new FileReader();
+        reader.onloadend = () => setImages(prev => [...prev, reader.result]);
+        reader.readAsDataURL(file);
+        e.target.value = '';
     };
 
-    const removeImage = (index) => {
-        setImages(prev => prev.filter((_, i) => i !== index));
-        setPreviewImages(prev => prev.filter((_, i) => i !== index));
+    const removeImage = (index) => setImages(prev => prev.filter((_, i) => i !== index));
+
+    const nextStep = async () => {
+        let fields = currentStep === 1 ? ['category', 'title', 'itemType'] : currentStep === 2 ? ['location', 'description'] : [];
+        if (await trigger(fields)) setCurrentStep(prev => Math.min(prev + 1, 4));
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        if (!formData.title || !formData.itemType || !formData.location) {
-            alert('Vui lòng điền đầy đủ thông tin bắt buộc');
-            return;
-        }
+    const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
-        setLoading(true);
+    const onSubmit = async (data) => {
+        if (images.length === 0) { setError('Vui lòng tải ít nhất 1 ảnh'); return; }
+        setIsSubmitting(true);
+        setError('');
         try {
-            const payload = new FormData();
-            payload.append('title', formData.title);
-            payload.append('description', formData.description);
-            payload.append('category', formData.category);
-            payload.append('itemType', formData.itemType);
-            payload.append('location', formData.location);
-            payload.append('contactInfo', JSON.stringify({
-                phone: formData.contactPhone,
-                email: formData.contactEmail
-            }));
-
-            images.forEach(img => {
-                payload.append('images', img);
-            });
-
-            await createPost(payload);
-            alert('Thêm bài đăng thành công!');
-            navigate('/admin/lost-items');
-        } catch (error) {
-            alert(error.response?.data?.message || 'Có lỗi xảy ra');
+            const payload = {
+                title: data.title,
+                description: data.description,
+                category: data.category,
+                itemType: data.itemType,
+                location: data.location,
+                images: images,
+                contactInfo: { phone: data.phone || '', email: data.email || '' },
+                status: 'approved' // Admin đăng tự động duyệt
+            };
+            const result = await createPost(payload);
+            if (result) {
+                alert('Đăng tin thành công! Bài đăng đã được duyệt tự động.');
+                navigate('/admin/admin-posts');
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Có lỗi xảy ra');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
+
+    const steps = [
+        { number: 1, title: 'Thông tin', icon: FileText },
+        { number: 2, title: 'Chi tiết', icon: MapPin },
+        { number: 3, title: 'Hình ảnh', icon: Image },
+        { number: 4, title: 'Liên hệ', icon: Phone },
+    ];
 
     return (
-        <AdminSection title="Thêm đồ thất lạc">
-            <div className="w-full">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Loại tin */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                        <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <Package className="w-5 h-5 text-blue-500" />
-                            Loại tin đăng
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <label className={`flex items-center justify-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                                formData.category === 'found' 
-                                    ? 'border-green-500 bg-green-50 text-green-700' 
-                                    : 'border-gray-200 hover:border-gray-300'
-                            }`}>
-                                <input
-                                    type="radio"
-                                    name="category"
-                                    value="found"
-                                    checked={formData.category === 'found'}
-                                    onChange={handleChange}
-                                    className="hidden"
-                                />
-                                <span className="text-2xl">✨</span>
-                                <span className="font-medium">Đồ nhặt được</span>
-                            </label>
-                            <label className={`flex items-center justify-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                                formData.category === 'lost' 
-                                    ? 'border-red-500 bg-red-50 text-red-700' 
-                                    : 'border-gray-200 hover:border-gray-300'
-                            }`}>
-                                <input
-                                    type="radio"
-                                    name="category"
-                                    value="lost"
-                                    checked={formData.category === 'lost'}
-                                    onChange={handleChange}
-                                    className="hidden"
-                                />
-                                <span className="text-2xl">🔍</span>
-                                <span className="font-medium">Đồ bị mất</span>
-                            </label>
-                        </div>
-                    </div>
+        <AdminSection title="Đăng tin mới (Admin)" description="Bài đăng sẽ được duyệt tự động">
+            <div className="max-w-4xl">
+                {/* Thông báo Admin */}
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                    <p className="text-purple-700 text-sm">Bài đăng của Admin sẽ được duyệt tự động và lưu vào bảng riêng.</p>
+                </div>
 
-                    {/* Thông tin cơ bản */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                        <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-blue-500" />
-                            Thông tin cơ bản
-                        </h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Tiêu đề <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="title"
-                                    value={formData.title}
-                                    onChange={handleChange}
-                                    placeholder="VD: Nhặt được ví màu đen tại thư viện"
-                                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                    required
-                                />
+                {/* Progress Steps */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+                    <div className="flex items-center justify-between">
+                        {steps.map((step, index) => (
+                            <div key={step.number} className="flex items-center">
+                                <div className="flex flex-col items-center">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${currentStep >= step.number ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
+                                        <step.icon className="w-5 h-5" />
+                                    </div>
+                                    <span className={`text-xs mt-2 font-medium hidden md:block ${currentStep >= step.number ? 'text-purple-600' : 'text-gray-400'}`}>{step.title}</span>
+                                </div>
+                                {index < steps.length - 1 && <div className={`w-12 md:w-24 h-1 mx-2 rounded-full ${currentStep > step.number ? 'bg-gradient-to-r from-purple-600 to-pink-600' : 'bg-gray-200'}`} />}
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Mô tả chi tiết
-                                </label>
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleChange}
-                                    placeholder="Mô tả đặc điểm nhận dạng, thời gian, địa điểm cụ thể..."
-                                    rows={4}
-                                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                        ))}
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-2xl mb-6 flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0" /><span>{error}</span>
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit(onSubmit)}>
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                        {currentStep === 1 && (
+                            <div className="space-y-6">
+                                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6"><FileText className="w-5 h-5 text-purple-600" />Thông tin cơ bản</h2>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Loại đồ vật <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        name="itemType"
-                                        value={formData.itemType}
-                                        onChange={handleChange}
-                                        className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                        required
-                                    >
-                                        <option value="">-- Chọn loại đồ vật --</option>
-                                        {itemTypes.map(type => (
-                                            <option key={type} value={type}>{type}</option>
-                                        ))}
-                                    </select>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-3">Loại tin đăng <span className="text-red-500">*</span></label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <label className={`flex flex-col items-center p-6 border-2 rounded-2xl cursor-pointer transition-all ${category === 'found' ? 'border-green-500 bg-green-50 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}>
+                                            <input {...register("category", { required: "Vui lòng chọn loại tin" })} type="radio" value="found" className="sr-only" defaultChecked />
+                                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${category === 'found' ? 'bg-green-500' : 'bg-gray-200'}`}><span className="text-3xl">🎉</span></div>
+                                            <span className={`font-semibold ${category === 'found' ? 'text-green-600' : 'text-gray-700'}`}>Đồ nhặt được</span>
+                                            <span className="text-xs text-gray-500 mt-1">Tìm chủ nhân</span>
+                                            {category === 'found' && <CheckCircle className="w-5 h-5 text-green-500 mt-2" />}
+                                        </label>
+                                        <label className={`flex flex-col items-center p-6 border-2 rounded-2xl cursor-pointer transition-all ${category === 'lost' ? 'border-red-500 bg-red-50 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}>
+                                            <input {...register("category", { required: "Vui lòng chọn loại tin" })} type="radio" value="lost" className="sr-only" />
+                                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${category === 'lost' ? 'bg-red-500' : 'bg-gray-200'}`}><span className="text-3xl">😢</span></div>
+                                            <span className={`font-semibold ${category === 'lost' ? 'text-red-600' : 'text-gray-700'}`}>Đồ thất lạc</span>
+                                            <span className="text-xs text-gray-500 mt-1">Báo mất đồ</span>
+                                            {category === 'lost' && <CheckCircle className="w-5 h-5 text-red-500 mt-2" />}
+                                        </label>
+                                    </div>
+                                    {errors.category && <p className="text-red-500 text-sm mt-2">{errors.category.message}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Vị trí <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        name="location"
-                                        value={formData.location}
-                                        onChange={handleChange}
-                                        className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                        required
-                                    >
-                                        <option value="">-- Chọn vị trí --</option>
-                                        {locations.map(loc => (
-                                            <option key={loc} value={loc}>{loc}</option>
-                                        ))}
-                                    </select>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-3">Tiêu đề <span className="text-red-500">*</span></label>
+                                    <input {...register("title", { required: "Tiêu đề là bắt buộc", minLength: { value: 10, message: "Tối thiểu 10 ký tự" } })} type="text" placeholder="VD: Nhặt được ví màu đen tại thư viện" className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" />
+                                    {errors.title && <p className="text-red-500 text-sm mt-2">{errors.title.message}</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-3"><Tag className="w-4 h-4 inline mr-2 text-purple-600" />Loại đồ vật <span className="text-red-500">*</span></label>
+                                    <input {...register("itemType", { required: "Loại đồ vật là bắt buộc" })} type="text" placeholder="VD: Điện thoại, Chìa khóa, Ví..." className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" />
+                                    {errors.itemType && <p className="text-red-500 text-sm mt-2">{errors.itemType.message}</p>}
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        )}
 
-                    {/* Hình ảnh */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                        <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <Image className="w-5 h-5 text-blue-500" />
-                            Hình ảnh (tối đa 5 ảnh)
-                        </h3>
-                        <div className="flex flex-wrap gap-4">
-                            {previewImages.map((preview, index) => (
-                                <div key={index} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
-                                    <img src={preview} alt="" className="w-full h-full object-cover" />
-                                    <button
-                                        type="button"
-                                        onClick={() => removeImage(index)}
-                                        className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </button>
+                        {currentStep === 2 && (
+                            <div className="space-y-6">
+                                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6"><MapPin className="w-5 h-5 text-purple-600" />Chi tiết vị trí & mô tả</h2>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-3"><MapPin className="w-4 h-4 inline mr-2 text-purple-600" />Vị trí {category === 'lost' ? 'mất' : 'nhặt được'} <span className="text-red-500">*</span></label>
+                                    <input {...register("location", { required: "Vị trí là bắt buộc" })} type="text" placeholder="VD: Thư viện A, Căn tin..." className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" />
+                                    {errors.location && <p className="text-red-500 text-sm mt-2">{errors.location.message}</p>}
                                 </div>
-                            ))}
-                            {images.length < 5 && (
-                                <label className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
-                                    <Plus className="w-6 h-6 text-gray-400" />
-                                    <span className="text-xs text-gray-400 mt-1">Thêm ảnh</span>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        onChange={handleImageChange}
-                                        className="hidden"
-                                    />
-                                </label>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-3">Mô tả chi tiết <span className="text-red-500">*</span></label>
+                                    <textarea {...register("description", { required: "Mô tả là bắt buộc", minLength: { value: 20, message: "Tối thiểu 20 ký tự" } })} rows="6" placeholder="Mô tả chi tiết về đồ vật..." className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none" />
+                                    {errors.description && <p className="text-red-500 text-sm mt-2">{errors.description.message}</p>}
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep === 3 && (
+                            <div className="space-y-6">
+                                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6"><Image className="w-5 h-5 text-purple-600" />Hình ảnh minh họa</h2>
+                                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
+                                    <p className="text-purple-700 text-sm">💡 Tải lên hình ảnh rõ ràng. Tối đa 5 ảnh, mỗi ảnh không quá 2MB.</p>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    {images.map((img, index) => (
+                                        <div key={index} className="relative group">
+                                            <img src={img} alt={`Preview ${index + 1}`} className="w-full h-40 object-cover rounded-xl border-2 border-gray-200 shadow-md" />
+                                            <button type="button" onClick={() => removeImage(index)} className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 shadow-lg opacity-0 group-hover:opacity-100 transition-all"><X className="w-4 h-4" /></button>
+                                            <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-lg">Ảnh {index + 1}</div>
+                                        </div>
+                                    ))}
+                                    {images.length < 5 && (
+                                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl h-40 cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-all group">
+                                            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                                            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-purple-100"><Upload className="w-6 h-6 text-gray-400 group-hover:text-purple-500" /></div>
+                                            <span className="text-sm text-gray-500 group-hover:text-purple-600 font-medium">Thêm ảnh</span>
+                                            <span className="text-xs text-gray-400 mt-1">{images.length}/5 ảnh</span>
+                                        </label>
+                                    )}
+                                </div>
+                                {images.length === 0 && <p className="text-red-500 text-sm text-center mt-4">⚠️ Vui lòng tải ít nhất 1 ảnh</p>}
+                            </div>
+                        )}
+
+                        {currentStep === 4 && (
+                            <div className="space-y-6">
+                                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6"><Phone className="w-5 h-5 text-purple-600" />Thông tin liên hệ</h2>
+                                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+                                    <p className="text-green-700 text-sm">✅ Thông tin liên hệ giúp người khác liên lạc khi tìm thấy đồ vật.</p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-3"><Phone className="w-4 h-4 inline mr-2 text-purple-600" />Số điện thoại</label>
+                                        <input {...register("phone", { pattern: { value: /^[0-9]{10}$/, message: "Số điện thoại không hợp lệ" } })} type="tel" placeholder="0962xxxxxx" className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" />
+                                        {errors.phone && <p className="text-red-500 text-sm mt-2">{errors.phone.message}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-3"><Mail className="w-4 h-4 inline mr-2 text-purple-600" />Email</label>
+                                        <input {...register("email", { pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Email không hợp lệ" } })} type="email" placeholder="email@example.com" className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" />
+                                        {errors.email && <p className="text-red-500 text-sm mt-2">{errors.email.message}</p>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-between mt-10 pt-6 border-t border-gray-100">
+                            <button type="button" onClick={currentStep === 1 ? () => navigate('/admin/admin-posts') : prevStep} className="px-6 py-3 border-2 border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium">
+                                {currentStep === 1 ? 'Hủy' : '← Quay lại'}
+                            </button>
+                            {currentStep < 4 ? (
+                                <button type="button" onClick={nextStep} className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-semibold shadow-lg flex items-center gap-2">
+                                    Tiếp theo <ChevronRight className="w-5 h-5" />
+                                </button>
+                            ) : (
+                                <button type="submit" disabled={isSubmitting || images.length === 0} className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                                    {isSubmitting ? (<><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Đang đăng...</>) : (<><Sparkles className="w-5 h-5" />Đăng tin ngay</>)}
+                                </button>
                             )}
                         </div>
-                    </div>
-
-                    {/* Thông tin liên hệ */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                        <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <MapPin className="w-5 h-5 text-blue-500" />
-                            Thông tin liên hệ
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Số điện thoại
-                                </label>
-                                <input
-                                    type="tel"
-                                    name="contactPhone"
-                                    value={formData.contactPhone}
-                                    onChange={handleChange}
-                                    placeholder="0123 456 789"
-                                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Email
-                                </label>
-                                <input
-                                    type="email"
-                                    name="contactEmail"
-                                    value={formData.contactEmail}
-                                    onChange={handleChange}
-                                    placeholder="email@example.com"
-                                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Buttons */}
-                    <div className="flex gap-4">
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all disabled:opacity-50"
-                        >
-                            <Send className="w-5 h-5" />
-                            {loading ? 'Đang xử lý...' : 'Đăng bài'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => navigate('/admin/lost-items')}
-                            className="px-6 py-3 border border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors"
-                        >
-                            Hủy
-                        </button>
                     </div>
                 </form>
             </div>

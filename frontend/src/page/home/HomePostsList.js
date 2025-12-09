@@ -247,6 +247,7 @@ const HomePostsList = () => {
                                             alt={item.title} 
                                             className="w-full max-h-[400px] object-cover" 
                                             blur={true}
+                                            postOwnerId={item.user?._id || item.userId}
                                         />
                                     ) : (
                                         <div className="w-full h-48 flex items-center justify-center"><Package className="w-16 h-16 text-gray-300" /></div>

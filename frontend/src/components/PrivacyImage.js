@@ -1,18 +1,57 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useContext, useMemo } from 'react';
 import { Eye, Loader2 } from 'lucide-react';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import '@tensorflow/tfjs';
+import { AuthContext } from '../core/AuthContext';
+import { jwtDecode } from 'jwt-decode';
+import { getImageUrl } from '../utils/constant';
 
 /**
  * PrivacyImage - Dùng AI để làm mờ chỉ đồ vật, giữ nền rõ
+ * @param {string} postOwnerId - ID của chủ bài đăng (nếu có)
+ * @param {boolean} blur - Có blur hay không (mặc định true)
  */
-const PrivacyImage = ({ src, alt, className = '', blur = true, onClick, ...props }) => {
+const PrivacyImage = ({ src: rawSrc, alt, className = '', blur = true, onClick, postOwnerId, ...props }) => {
+    const { token } = useContext(AuthContext);
+    
+    // Xử lý URL ảnh
+    const src = useMemo(() => getImageUrl(rawSrc), [rawSrc]);
+    
+    // Kiểm tra xem user hiện tại có phải admin không - chỉ admin mới không bị blur
+    const needBlur = useMemo(() => {
+        if (!blur) return false;
+        if (!token) return true; // Chưa đăng nhập -> blur
+        
+        try {
+            const decoded = jwtDecode(token);
+            const roles = decoded.roles || [];
+            
+            // Chỉ Admin không bị blur
+            if (roles.includes('admin')) return false;
+            
+            return true; // Tất cả người khác -> blur
+        } catch (err) {
+            return true;
+        }
+    }, [blur, token]);
+    
     const canvasRef = useRef(null);
     const [loading, setLoading] = useState(true);
     const [processed, setProcessed] = useState(false);
+    const [imgError, setImgError] = useState(false);
 
     useEffect(() => {
-        if (!blur) {
+        // Reset states khi src thay đổi
+        setLoading(true);
+        setProcessed(false);
+        setImgError(false);
+        
+        if (!src) {
+            setLoading(false);
+            return;
+        }
+        
+        if (!needBlur) {
             setLoading(false);
             return;
         }
@@ -20,7 +59,10 @@ const PrivacyImage = ({ src, alt, className = '', blur = true, onClick, ...props
         const processImage = async () => {
             try {
                 const img = new Image();
-                img.crossOrigin = 'anonymous';
+                // Chỉ set crossOrigin nếu không phải base64
+                if (!src.startsWith('data:')) {
+                    img.crossOrigin = 'anonymous';
+                }
                 img.src = src;
                 
                 img.onload = async () => {
@@ -86,20 +128,50 @@ const PrivacyImage = ({ src, alt, className = '', blur = true, onClick, ...props
                 };
                 
                 img.onerror = () => {
+                    console.error('Image load error:', src?.substring(0, 100));
+                    setImgError(true);
                     setLoading(false);
                 };
             } catch (err) {
                 console.error('Process image error:', err);
+                setImgError(true);
                 setLoading(false);
             }
         };
 
         processImage();
-    }, [src, blur]);
+    }, [src, needBlur]);
 
-    // Không blur
-    if (!blur) {
-        return <img src={src} alt={alt} className={className} onClick={onClick} {...props} />;
+    // Nếu không có src, hiển thị placeholder
+    if (!src) {
+        return (
+            <div className={`${className} bg-gray-200 flex items-center justify-center`} onClick={onClick}>
+                <span className="text-gray-400 text-sm">Không có ảnh</span>
+            </div>
+        );
+    }
+
+    // Hiển thị lỗi nếu ảnh không load được
+    if (imgError) {
+        return (
+            <div className={`${className} bg-gray-200 flex items-center justify-center`} onClick={onClick}>
+                <span className="text-gray-400 text-sm">Không thể tải ảnh</span>
+            </div>
+        );
+    }
+
+    // Không blur - hiển thị ảnh gốc
+    if (!needBlur) {
+        return (
+            <img 
+                src={src} 
+                alt={alt} 
+                className={className} 
+                onClick={onClick} 
+                onError={() => setImgError(true)} 
+                {...props} 
+            />
+        );
     }
 
     return (
@@ -118,6 +190,7 @@ const PrivacyImage = ({ src, alt, className = '', blur = true, onClick, ...props
                     alt={alt}
                     className={className}
                     style={{ filter: 'blur(15px)' }}
+                    onError={() => setImgError(true)}
                     {...props}
                 />
             )}
@@ -129,11 +202,11 @@ const PrivacyImage = ({ src, alt, className = '', blur = true, onClick, ...props
                 </div>
             )}
             
-            {/* Overlay xem chi tiết */}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                <div className="bg-white/80 px-3 py-1.5 rounded-full flex items-center gap-2 shadow">
+            {/* Overlay xem chi tiết - chỉ hiện khi hover */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-all opacity-0 group-hover:opacity-100">
+                <div className="bg-white/90 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg transform scale-90 group-hover:scale-100 transition-all">
                     <Eye className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm text-gray-700">Xem chi tiết</span>
+                    <span className="text-sm font-medium text-gray-700">Xem chi tiết</span>
                 </div>
             </div>
         </div>

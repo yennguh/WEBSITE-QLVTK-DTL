@@ -2,7 +2,8 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from 'rea
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logoHeader from "../public/assets/logo.jpg";
 import { AuthContext } from '../core/AuthContext';
-import { ChevronDown, CircleUser, FileSearch, LayoutDashboard, Settings, MessageSquare, CircleHelp, Users } from 'lucide-react';
+import { ChevronDown, CircleUser, LayoutDashboard, Settings, MessageSquare, CircleHelp, Users, AlertTriangle } from 'lucide-react';
+import { getImageUrl } from '../utils/constant';
 
 const makeIcon = (label) => (
     <span aria-hidden className="inline-block w-6 text-center">{label}</span>
@@ -16,21 +17,22 @@ const navItems = [
     },
     {
         icon: <CircleHelp />,
-        name: 'Đồ thất lạc',
+        name: 'Bài đăng',
         subItems: [
-            { name: 'Danh sách đồ thất lạc', icon: makeIcon('•'), path: '/admin/lost-items' },
-            { name: 'Thêm đồ thất lạc', icon: makeIcon('•'), path: '/admin/lost-items/add' }
+            { name: 'Danh sách bài đăng', icon: makeIcon('•'), path: '/admin/lost-items' },
+            { name: 'Đăng tin mới', icon: makeIcon('•'), path: '/admin/admin-posts/create' },
+            { name: 'Đã trả đồ', icon: makeIcon('•'), path: '/admin/returned-items' }
         ]
-    },
-    {
-        icon: <FileSearch />,
-        name: 'Đã tìm thấy',
-        path: '/admin/found-items'
     },
     {
         icon: <MessageSquare />,
         name: 'Tin nhắn liên hệ',
         path: '/admin/contacts'
+    },
+    {
+        icon: <AlertTriangle />,
+        name: 'Tố cáo bài đăng',
+        path: '/admin/reports'
     },
 ];
 
@@ -62,6 +64,7 @@ const othersItems = [
     },
 ];
 
+
 export default function AppSidebar() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -70,7 +73,8 @@ export default function AppSidebar() {
     const [openSubmenu, setOpenSubmenu] = useState(null);
     const [subMenuHeight, setSubMenuHeight] = useState({});
     const subMenuRefs = useRef({});
-    const { logout } = useContext(AuthContext);
+    const { logout, user } = useContext(AuthContext);
+    
     const isActive = useCallback((path) => {
         if (path === '/logout') return false;
         if (path === '/admin') {
@@ -78,10 +82,12 @@ export default function AppSidebar() {
         }
         return location.pathname === path || location.pathname.startsWith(`${path}/`);
     }, [location.pathname]);
+    
     const handleLogout = () => {
         logout();
         navigate("/login");
     };
+    
     useEffect(() => {
         let found = false;
         [['main', navItems], ['others', othersItems]].forEach(([type, items]) => {
@@ -122,11 +128,13 @@ export default function AppSidebar() {
                         <div>
                             <button
                                 onClick={() => handleSubmenuToggle(idx, menuType)}
-                                className={`flex items-center gap-3 w-full p-2 rounded  hover:bg-[#246188]`}
+                                className={`flex items-center gap-3 w-full p-2 rounded hover:bg-[#246188]`}
                             >
                                 <span className="w-6">{nav.icon}</span>
                                 <span className="flex-1 text-sm text-start">{nav.name}</span>
-                                <span className={`ml-auto transition-transform ${openSubmenu && openSubmenu.type === menuType && openSubmenu.index === idx ? 'rotate-180' : ''}`}><ChevronDown className='w-4' /></span>
+                                <span className={`ml-auto transition-transform ${openSubmenu && openSubmenu.type === menuType && openSubmenu.index === idx ? 'rotate-180' : ''}`}>
+                                    <ChevronDown className='w-4' />
+                                </span>
                             </button>
 
                             <div
@@ -139,17 +147,15 @@ export default function AppSidebar() {
                                 <ul className="pl-8 pt-2 pb-2">
                                     {nav.subItems.map((s) => (
                                         <li key={s.name}>
-                                            {
-                                                s.path === '/logout' ? (
-                                                    <button onClick={handleLogout} type="submit" className={`block w-full text-left p-1 rounded hover:bg-[#246188] text-sm ${isActive(s.path) ? 'bg-[#246188] font-semibold ' : ''}`}>
-                                                        {s.icon} {s.name}
-                                                    </button>
-                                                ) : (
-                                                    <Link to={s.path} className={`block p-1 rounded hover:bg-[#246188] text-sm ${isActive(s.path) ? 'bg-[#246188] font-semibold ' : ''}`}>
-                                                        {s.icon} {s.name}
-                                                    </Link>
-                                                )
-                                            }
+                                            {s.path === '/logout' ? (
+                                                <button onClick={handleLogout} type="submit" className={`block w-full text-left p-1 rounded hover:bg-[#246188] text-sm ${isActive(s.path) ? 'bg-[#246188] font-semibold ' : ''}`}>
+                                                    {s.icon} {s.name}
+                                                </button>
+                                            ) : (
+                                                <Link to={s.path} className={`block p-1 rounded hover:bg-[#246188] text-sm ${isActive(s.path) ? 'bg-[#246188] font-semibold ' : ''}`}>
+                                                    {s.icon} {s.name}
+                                                </Link>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>
@@ -171,12 +177,25 @@ export default function AppSidebar() {
             <div className="flex items-center justify-between mb-4">
                 <Link to="/admin" className="flex items-center gap-2">
                     <div className="flex items-center gap-3">
-                        <img
-                            src={logoHeader}
-                            alt="logo"
-                            className="w-14 h-14 object-contain rounded-lg"
-                        />
-                        <span>Xin chào...</span>
+                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg border-2 border-blue-200">
+                            {user?.avatar ? (
+                                <img
+                                    src={getImageUrl(user.avatar)}
+                                    alt="avatar"
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <img
+                                    src={logoHeader}
+                                    alt="logo"
+                                    className="w-full h-full object-contain p-1"
+                                />
+                            )}
+                        </div>
+                        <div>
+                            <p className="text-sm opacity-80">Xin chào,</p>
+                            <p className="font-semibold">{user?.fullname || 'Admin'}</p>
+                        </div>
                     </div>
                 </Link>
             </div>

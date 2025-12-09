@@ -1,31 +1,30 @@
-import { FaFacebookF } from "react-icons/fa";
-import { IoIosNotifications } from "react-icons/io";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import logoHeader from "../public/assets/logo.jpg"; // giữ nguyên đường dẫn cũ
+import logoHeader from "../public/assets/logo.jpg";
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../core/AuthContext";
 import { fetchNotifications } from "../api/notifications.api";
 import { getImageUrl } from "../utils/constant";
-import { User } from "lucide-react";
+import { User, Bell, Shield, LogIn, UserPlus, ChevronDown, Menu, X } from "lucide-react";
 
 export default function Header() {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { logout, token, user } = useContext(AuthContext);
   const [avatarErrored, setAvatarErrored] = useState(false);
-  const location = useLocation(); // thêm để highlight trang hiện tại
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
-    window.location.href = "/login";
+    navigate('/', { replace: true });
   };
 
   useEffect(() => {
     if (token) {
       fetchUnreadNotifications();
     }
-  }, [token]); // sửa dependency thành token
+  }, [token]);
 
   const fetchUnreadNotifications = async () => {
     try {
@@ -41,35 +40,60 @@ export default function Header() {
     }
   };
 
-  // Danh sách menu + đường dẫn tương ứng
   const menuItems = [
     { name: "Trang chủ", path: "/" },
-    { name: "Đồ thất lạc", path: "/" },
+    { name: "Đồ thất lạc", path: "/do-that-lac" },
     { name: "Đăng tin", path: "/baidang/create" },
     { name: "Bảng Khen Thưởng", path: "/khen-thuong" },
     { name: "Liên hệ", path: "/lien-he" },
   ];
 
   return (
-    <header className="w-full shadow-sm border-b bg-white">
-      <div className="w-full mx-auto flex items-center justify-between py-2 px-4">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-          <Link to="/">
-            <img src={logoHeader} alt="logo" className="w-14 h-14 object-contain" />
-          </Link>
+    <header className="w-full shadow-lg bg-white sticky top-0 z-50">
+      {/* Top Bar */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white py-2">
+        <div className="w-full px-6 lg:px-12 flex items-center justify-between text-sm">
+          <div className="flex items-center gap-4">
+            <span>📞 Hotline: 0986 095 484</span>
+            <span className="hidden md:inline">📧 hoangyen24042004@gmail.com</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <a href="https://tvu.edu.vn" target="_blank" rel="noopener noreferrer" className="hover:underline">🏫 TVU</a>
+            <a href="https://sinhvien.tvu.edu.vn" target="_blank" rel="noopener noreferrer" className="hover:underline hidden sm:inline">🎓 Cổng SV</a>
+          </div>
         </div>
+      </div>
 
-        {/* Navigation */}
-        <nav className="flex items-center gap-5 text-sm font-medium">
-          {menuItems.map((item) => (
+      {/* Main Header */}
+      <div className="w-full px-6 lg:px-12 flex items-center justify-between py-4">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-4 group">
+          <div className="relative">
+            <img 
+              src={logoHeader} 
+              alt="logo" 
+              className="w-16 h-16 object-contain rounded-2xl shadow-lg group-hover:shadow-xl transition-all border-2 border-blue-100" 
+            />
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+              <span className="text-white text-xs">✓</span>
+            </div>
+          </div>
+          <div>
+            <h1 className="font-bold text-gray-800 text-xl">ĐH Trà Vinh</h1>
+            <p className="text-sm text-gray-500">Hệ thống tìm kiếm đồ thất lạc</p>
+          </div>
+        </Link>
+
+        {/* Navigation - Desktop */}
+        <nav className="hidden xl:flex items-center gap-2">
+          {menuItems.map((item, index) => (
             <Link
-              key={item.path}
+              key={index}
               to={item.path}
-              className={`px-2 py-1 rounded-full transition ${
+              className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                 location.pathname === item.path
-                  ? "bg-red-100 text-red-600 font-semibold text-lg"
-                  : "hover:text-red-600 text-lg"
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30"
+                  : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
               }`}
             >
               {item.name}
@@ -77,115 +101,137 @@ export default function Header() {
           ))}
         </nav>
 
-        {/* User / Login */}
+        {/* Actions */}
         <div className="flex items-center gap-3">
+          {/* Admin Button */}
+          <Link to="/admin/login" className="hidden lg:block">
+            <button className="flex items-center gap-2 bg-gradient-to-r from-slate-700 to-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:from-slate-800 hover:to-black transition-all shadow-lg hover:shadow-xl">
+              <Shield className="w-4 h-4" />
+              <span>Admin</span>
+            </button>
+          </Link>
+
           {user ? (
-            <div className="relative">
+            <>
+              {/* Notifications Bell */}
               <button
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 hover:bg-gray-100 px-3 py-2 rounded-md"
+                onClick={() => navigate('/thong-bao')}
+                className="relative p-3 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all group border border-blue-100"
               >
-                {user.avatar && !avatarErrored ? (
-                  <img 
-                    src={getImageUrl(user.avatar)} 
-                    alt="Avatar" 
-                    className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                    onError={() => setAvatarErrored(true)}
-                    onLoad={() => setAvatarErrored(false)}
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <User className="w-5 h-5 text-blue-600" />
-                  </div>
+                <Bell className="w-5 h-5 text-blue-600" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-bounce">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 )}
-                <span>
-                  Xin chào, <span className="font-bold">{user.fullname}</span>
-                </span>
               </button>
 
-              {showDropdown && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowDropdown(false)}
-                  ></div>
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 py-1">
-                    <Link
-                      to="/profile"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowDropdown(false)}
-                    >
-                      Thông tin cá nhân
-                    </Link>
-                    <Link
-                      to="/baidang/mine"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowDropdown(false)}
-                    >
-                      Bài đăng của tôi
-                    </Link>
-                    <Link
-                      to="/thong-bao"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowDropdown(false)}
-                    >
-                      Thông báo
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    >
-                      Đăng xuất
-                    </button>
+              {/* User Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 px-4 py-2.5 rounded-xl transition-all border border-blue-100"
+                >
+                  {user.avatar && !avatarErrored ? (
+                    <img 
+                      src={getImageUrl(user.avatar)} 
+                      alt="Avatar" 
+                      className="w-10 h-10 rounded-xl object-cover ring-2 ring-blue-200"
+                      onError={() => setAvatarErrored(true)}
+                      onLoad={() => setAvatarErrored(false)}
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                  <div className="hidden md:block text-left">
+                    <p className="text-sm font-semibold text-gray-800 max-w-[120px] truncate">{user.fullname}</p>
+                    <p className="text-xs text-gray-500">Thành viên</p>
                   </div>
-                </>
-              )}
-            </div>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)}></div>
+                    <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl z-20 py-2 border border-gray-100 overflow-hidden">
+                      <div className="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <p className="text-base font-bold text-gray-800">{user.fullname}</p>
+                        <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                      </div>
+                      <Link to="/profile" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors" onClick={() => setShowDropdown(false)}>
+                        <User className="w-5 h-5 text-blue-500" />
+                        Thông tin cá nhân
+                      </Link>
+                      <Link to="/baidang/mine" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors" onClick={() => setShowDropdown(false)}>
+                        <span className="text-lg">📝</span>
+                        Bài đăng của tôi
+                      </Link>
+                      <Link to="/thong-bao" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors" onClick={() => setShowDropdown(false)}>
+                        <Bell className="w-5 h-5 text-blue-500" />
+                        Thông báo
+                        {unreadCount > 0 && <span className="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full">{unreadCount}</span>}
+                      </Link>
+                      <div className="border-t border-gray-100 mt-2 pt-2">
+                        <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                          <span className="text-lg">🚪</span>
+                          Đăng xuất
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           ) : (
-            <div className="flex items-center gap-2">
+            <>
               <Link to="/login">
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-blue-700">
-                  Đăng nhập
+                <button className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl">
+                  <LogIn className="w-4 h-4" />
+                  <span className="hidden sm:inline">Đăng nhập</span>
                 </button>
               </Link>
               <Link to="/register">
-                <button className="border border-blue-600 text-blue-600 px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-50">
-                  Đăng ký
+                <button className="flex items-center gap-2 border-2 border-blue-600 text-blue-600 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-50 transition-all">
+                  <UserPlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Đăng ký</span>
                 </button>
               </Link>
-            </div>
+            </>
           )}
 
-          {/* Facebook icon */}
-          <div className="flex items-center gap-2">
-            <a
-              href="https://facebook.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-9 h-9 flex items-center justify-center border rounded-full hover:bg-gray-100"
-            >
-              <FaFacebookF className="text-lg" />
-            </a>
-          </div>
-
-          {/* Notifications */}
-          {token && (
-            <button
-              onClick={() => navigate('/thong-bao')}
-              type="button"
-              className="relative inline-flex items-center p-1 text-sm font-medium text-center"
-            >
-              <IoIosNotifications className="text-2xl" />
-              {unreadCount > 0 && (
-                <div className="absolute inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-red-500 border-2 border-white rounded-full -top-2 -end-2">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </div>
-              )}
-            </button>
-          )}
-
+          {/* Mobile Menu Button */}
+          <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="xl:hidden p-2 rounded-xl bg-gray-100 hover:bg-gray-200">
+            {showMobileMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {showMobileMenu && (
+        <div className="xl:hidden bg-white border-t border-gray-200 py-4 px-6">
+          <nav className="flex flex-col gap-2">
+            {menuItems.map((item, index) => (
+              <Link
+                key={index}
+                to={item.path}
+                onClick={() => setShowMobileMenu(false)}
+                className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                  location.pathname === item.path
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                    : "text-gray-600 hover:bg-blue-50"
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
+            <Link to="/admin/login" onClick={() => setShowMobileMenu(false)} className="px-4 py-3 rounded-xl text-sm font-semibold bg-slate-800 text-white mt-2">
+              🛡️ Admin Panel
+            </Link>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

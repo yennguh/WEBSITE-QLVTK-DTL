@@ -3,7 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import multer from 'multer';
 import { userController } from '../controllers/userController.js';
 import { isAuth } from '../middlewares/authMiddleware.js';
-import { uploadAvatar } from '../middlewares/uploadMiddleware.js';
+import { uploadAvatar, uploadProfile } from '../middlewares/uploadMiddleware.js';
 
 const Router = express.Router();
 
@@ -27,6 +27,7 @@ Router.post('/google-login', userController.GoogleLogin)
 Router.get('/inforUser', isAuth, userController.InfoUser)
 Router.post('/refresh-token', userController.refreshToken)
 Router.get('/list', isAuth, userController.ListUsers)
-Router.put('/updateUser', isAuth, uploadAvatar, handleUploadError, userController.UpdateUser)
+Router.put('/updateUser', isAuth, uploadProfile, handleUploadError, userController.UpdateUser)
+Router.put('/change-password', isAuth, userController.ChangePassword)
 Router.delete('/:id', isAuth, userController.DeleteUser)
 export default Router

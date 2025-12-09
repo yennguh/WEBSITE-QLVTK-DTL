@@ -12,6 +12,19 @@ export const fetchCommentsByPostId = async (postId, params = {}) => {
 
 export const createComment = async (payload) => {
     try {
+        // Nếu có file ảnh, sử dụng FormData
+        if (payload.image) {
+            const formData = new FormData();
+            formData.append('postId', payload.postId);
+            formData.append('content', payload.content);
+            formData.append('image', payload.image);
+            
+            const response = await api.post('/v1/comments', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            return response.data;
+        }
+        
         const response = await api.post('/v1/comments', payload);
         return response.data;
     } catch (error) {

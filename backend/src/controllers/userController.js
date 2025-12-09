@@ -50,6 +50,7 @@ const InfoUser = async (req, res, next) => {
                 email: user.email,
                 phone: user.phone,
                 avatar: user.avatar || null,
+                coverPhoto: user.coverPhoto || null,
             }
             return res.status(StatusCodes.OK).json(data);
         }
@@ -129,9 +130,16 @@ const UpdateUser = async (req, res, next) => {
         // Prepare update payload
         const updatePayload = { ...req.body };
 
-        // If file is uploaded, add avatar path
-        if (req.file) {
-            // Construct the URL path to the uploaded file
+        // If files are uploaded, add paths
+        if (req.files) {
+            if (req.files.avatar && req.files.avatar[0]) {
+                updatePayload.avatar = `/uploads/avatars/${req.files.avatar[0].filename}`;
+            }
+            if (req.files.coverPhoto && req.files.coverPhoto[0]) {
+                updatePayload.coverPhoto = `/uploads/covers/${req.files.coverPhoto[0].filename}`;
+            }
+        } else if (req.file) {
+            // Fallback for single file upload
             updatePayload.avatar = `/uploads/avatars/${req.file.filename}`;
         }
 
@@ -190,6 +198,7 @@ const UpdateUser = async (req, res, next) => {
                 phone: updatedUser.phone,
                 roles: updatedUser.roles,
                 avatar: updatedUser.avatar,
+                coverPhoto: updatedUser.coverPhoto,
                 updateAt: updatedUser.updateAt
             }
         });
@@ -289,6 +298,68 @@ const GoogleLogin = async (req, res, next) => {
     }
 }
 
+const ChangePassword = async (req, res, next) => {
+    try {
+        const decoded = req.jwtDecoded;
+        if (!decoded || !decoded._id) {
+            return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Unauthorized' });
+        }
+
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ 
+                message: 'Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới' 
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ 
+                message: 'Mật khẩu mới phải có ít nhất 6 ký tự' 
+            });
+        }
+
+        // Get current user
+        const user = await GET_DB().collection('users').findOne({ _id: new ObjectId(decoded._id) });
+        
+        if (!user) {
+            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Không tìm thấy người dùng' });
+        }
+
+        // Check if user logged in with Google (no password)
+        if (!user.password) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ 
+                message: 'Tài khoản đăng nhập bằng Google không thể đổi mật khẩu' 
+            });
+        }
+
+        // Verify current password
+        if (user.password !== currentPassword) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ 
+                message: 'Mật khẩu hiện tại không đúng' 
+            });
+        }
+
+        // Update password
+        await GET_DB().collection('users').updateOne(
+            { _id: new ObjectId(decoded._id) },
+            { 
+                $set: { 
+                    password: newPassword,
+                    updateAt: Date.now()
+                } 
+            }
+        );
+
+        return res.status(StatusCodes.OK).json({ 
+            message: 'Đổi mật khẩu thành công' 
+        });
+    } catch (error) {
+        console.error('Change password error:', error);
+        next(error);
+    }
+}
+
 export const userController = {
     CreatedUser,
     Login,
@@ -297,5 +368,6 @@ export const userController = {
     ListUsers,
     UpdateUser,
     DeleteUser,
-    GoogleLogin
+    GoogleLogin,
+    ChangePassword
 }

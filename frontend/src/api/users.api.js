@@ -88,3 +88,13 @@ export const googleLogin = async (credential) => {
       throw error;
    }
 };
+
+export const changePassword = async (payload) => {
+   try {
+      const response = await api.put('/v1/user/change-password', payload);
+      return response.data;
+   } catch (error) {
+      console.error("Lỗi đổi mật khẩu:", error.response?.data || error.message);
+      throw error;
+   }
+};
