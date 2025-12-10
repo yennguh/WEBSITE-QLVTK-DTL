@@ -22,6 +22,8 @@ router.patch('/:id/reject', isAuth, postController.rejectPost);
 router.patch('/:id/mark-found', isAuth, postController.markItemFound);
 router.patch('/:id/mark-not-found', isAuth, postController.markItemNotFound);
 router.patch('/:id/return-status', isAuth, postController.updateReturnStatus);
+router.patch('/:id/ban', isAuth, postController.banPost);
+router.patch('/:id/unban', isAuth, postController.unbanPost);
 
 export default router;
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle, XCircle, AlertCircle, Info, MessageCircle, Heart, Mail } from 'lucide-react';
+import { Bell, CheckCircle, XCircle, AlertCircle, Info, MessageCircle, Heart, Mail, Ban } from 'lucide-react';
 import { fetchNotifications, markAsRead, markAllAsRead } from '../../api/notifications.api';
 import { AuthContext } from '../../core/AuthContext';
 import { NotificationListSkeleton } from '../../core/LoadingSpinner';
@@ -74,6 +74,8 @@ const Notifications = () => {
                 return <CheckCircle className="w-5 h-5 text-green-500" />;
             case 'post_rejected':
                 return <XCircle className="w-5 h-5 text-red-500" />;
+            case 'post_banned':
+                return <Ban className="w-5 h-5 text-orange-600" />;
             case 'item_found':
                 return <AlertCircle className="w-5 h-5 text-blue-500" />;
             case 'item_not_found':
@@ -97,6 +99,9 @@ const Notifications = () => {
         const type = notification?.type || '';
         if (type === 'message_received') {
             navigate('/contact');
+        } else if (type === 'post_banned') {
+            // Bài bị cấm - không navigate đến bài đăng vì đã bị ẩn
+            // Chỉ đánh dấu đã đọc
         } else if (notification?.relatedId && (type.includes('post') || type === 'comment' || type === 'like' || type === 'item_found' || type === 'item_not_found')) {
             navigate(`/baidang/${notification.relatedId}`);
         }

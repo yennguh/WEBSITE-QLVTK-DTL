@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
     Search, Package, CheckCircle, Clock, Eye, Trash2, Check, X, Edit,
-    TrendingUp, MapPin, Tag, Users, AlertCircle, BarChart3, PieChart
+    TrendingUp, MapPin, Tag, Users, AlertCircle, BarChart3, PieChart, Flag
 } from "lucide-react";
 import { fetchPosts, approvePost, rejectPost, deletePost, fetchTopPosters } from "../../api/posts.api";
+import { countPendingReports } from "../../api/reports.api";
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -18,7 +19,8 @@ export default function Dashboard() {
         completed: 0,
         rejected: 0,
         lost: 0,
-        found: 0
+        found: 0,
+        pendingReports: 0
     });
     const [topPosters, setTopPosters] = useState([]);
     const [statusFilter, setStatusFilter] = useState('all');
@@ -32,7 +34,19 @@ export default function Dashboard() {
 
     useEffect(() => {
         fetchTopPostersData();
+        fetchReportsCount();
     }, []);
+
+    const fetchReportsCount = async () => {
+        try {
+            const result = await countPendingReports();
+            if (result) {
+                setStats(prev => ({ ...prev, pendingReports: result.count || 0 }));
+            }
+        } catch (error) {
+            console.error("Error fetching reports count:", error);
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -145,7 +159,7 @@ export default function Dashboard() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
                 <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -226,6 +240,21 @@ export default function Dashboard() {
                         <div>
                             <p className="text-2xl font-bold text-emerald-600">{stats.found}</p>
                             <p className="text-xs text-gray-500">Nhặt được</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div 
+                    onClick={() => navigate('/admin/reports')}
+                    className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 hover:shadow-xl transition-all cursor-pointer hover:border-rose-300"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center">
+                            <Flag className="w-6 h-6 text-rose-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-rose-600">{stats.pendingReports}</p>
+                            <p className="text-xs text-gray-500">Tố cáo chờ xử lý</p>
                         </div>
                     </div>
                 </div>

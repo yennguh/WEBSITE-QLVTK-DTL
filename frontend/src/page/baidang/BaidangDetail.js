@@ -399,7 +399,7 @@ const BaidangDetail = () => {
 
                     {post.images?.length > 0 && (
                         <div className="relative">
-                            {token && !isOwner && !isAdmin && (
+                            {token && !isOwner && !post.user?.roles?.includes('admin') && (
                                 <button onClick={() => setShowReportModal(true)} className="absolute top-3 right-3 z-10 p-2 bg-white/90 hover:bg-red-50 rounded-full shadow-md transition-all" title="Tố cáo bài đăng">
                                     <Ban className="w-5 h-5 text-red-500" />
                                 </button>

@@ -397,6 +397,89 @@ const updateReturnStatus = async (req, res, next) => {
     }
 };
 
+// Cấm bài đăng (do vi phạm/tố cáo)
+const banPost = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+        const decoded = req.jwtDecoded;
+        
+        if (!decoded.roles?.includes('admin')) {
+            return res.status(StatusCodes.FORBIDDEN).json({ message: 'Only admin can ban posts' });
+        }
+
+        const post = await postServices.getPostById(id);
+        if (!post) {
+            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Post not found' });
+        }
+
+        const result = await postServices.banPost(id, reason);
+
+        // Gửi thông báo cho người đăng
+        if (post.userId && post.userId !== decoded._id) {
+            try {
+                await notificationServices.createNotification({
+                    userId: post.userId,
+                    title: '⚠️ Bài đăng bị cấm',
+                    message: `Bài đăng "${post.title}" đã bị cấm do vi phạm quy định. Lý do: ${reason || 'Vi phạm quy định cộng đồng'}`,
+                    type: 'post_banned',
+                    relatedId: id
+                });
+            } catch (notifyError) {
+                console.error('Failed to create ban notification:', notifyError);
+            }
+        }
+
+        res.status(StatusCodes.OK).json({
+            message: 'Post banned successfully',
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Gỡ cấm bài đăng
+const unbanPost = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const decoded = req.jwtDecoded;
+        
+        if (!decoded.roles?.includes('admin')) {
+            return res.status(StatusCodes.FORBIDDEN).json({ message: 'Only admin can unban posts' });
+        }
+
+        const post = await postServices.getPostById(id);
+        if (!post) {
+            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Post not found' });
+        }
+
+        const result = await postServices.unbanPost(id);
+
+        // Gửi thông báo cho người đăng
+        if (post.userId && post.userId !== decoded._id) {
+            try {
+                await notificationServices.createNotification({
+                    userId: post.userId,
+                    title: '✅ Bài đăng đã được gỡ cấm',
+                    message: `Bài đăng "${post.title}" đã được gỡ cấm và hiển thị trở lại.`,
+                    type: 'post_approved',
+                    relatedId: id
+                });
+            } catch (notifyError) {
+                console.error('Failed to create unban notification:', notifyError);
+            }
+        }
+
+        res.status(StatusCodes.OK).json({
+            message: 'Post unbanned successfully',
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const postController = {
     createPost,
     getPostById,
@@ -409,6 +492,8 @@ export const postController = {
     toggleLike,
     markItemFound,
     markItemNotFound,
-    updateReturnStatus
+    updateReturnStatus,
+    banPost,
+    unbanPost
 };
 

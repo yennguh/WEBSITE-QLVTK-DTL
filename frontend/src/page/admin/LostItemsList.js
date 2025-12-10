@@ -220,7 +220,7 @@ export default function LostItemsList() {
     );
 
     return (
-        <AdminSection title="Bài đăng của User" description="Quản lý bài đăng do người dùng tạo">
+        <AdminSection title="Quản lý bài đăng" description="Quản lý bài đăng do người dùng tạo">
             <div className="space-y-6">
                 {/* Search and Filters */}
                 <div className="flex flex-wrap items-center gap-4">

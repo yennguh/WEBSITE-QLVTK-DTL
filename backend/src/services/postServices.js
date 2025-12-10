@@ -63,13 +63,33 @@ const toggleLike = async (postId, userId) => {
     }
 };
 
+const banPost = async (id, reason) => {
+    try {
+        const result = await POSTMODEL.banPost(id, reason);
+        return result;
+    } catch (error) {
+        throw error;
+    }
+};
+
+const unbanPost = async (id) => {
+    try {
+        const result = await POSTMODEL.unbanPost(id);
+        return result;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const postServices = {
     createPost,
     getPostById,
     getPosts,
     updatePost,
     deletePost,
-    getTopPosters
-    , toggleLike
+    getTopPosters,
+    toggleLike,
+    banPost,
+    unbanPost
 };
 

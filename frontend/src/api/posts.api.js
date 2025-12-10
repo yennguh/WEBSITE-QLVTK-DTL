@@ -130,3 +130,23 @@ export const updateReturnStatus = async (id, returnStatus) => {
     }
 };
 
+export const banPost = async (id, reason) => {
+    try {
+        const response = await api.patch(`/v1/posts/${id}/ban`, { reason });
+        return response.data;
+    } catch (error) {
+        console.error("Lỗi cấm bài đăng:", error.response?.data || error.message);
+        throw error;
+    }
+};
+
+export const unbanPost = async (id) => {
+    try {
+        const response = await api.patch(`/v1/posts/${id}/unban`);
+        return response.data;
+    } catch (error) {
+        console.error("Lỗi gỡ cấm bài đăng:", error.response?.data || error.message);
+        throw error;
+    }
+};
+

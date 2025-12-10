@@ -20,6 +20,9 @@ const POST_COLLECTION_SCHEMA = Joi.object({
     authorAvatar: Joi.string().optional(), // Avatar của người đăng khi post được tạo
     authorFullname: Joi.string().optional(), // Fullname của người đăng khi post được tạo
     returnStatus: Joi.string().valid('gửi trả', 'chưa tìm thấy').optional(), // Trạng thái trả: 'gửi trả' hoặc 'chưa tìm thấy'
+    banned: Joi.boolean().default(false), // Bài đăng bị cấm do vi phạm
+    bannedReason: Joi.string().optional(), // Lý do bị cấm
+    bannedAt: Joi.date().timestamp('javascript').optional(), // Thời gian bị cấm
     createdAt: Joi.date().timestamp('javascript').default(Date.now),
     updatedAt: Joi.date().timestamp('javascript').default(null)
 });
@@ -84,7 +87,8 @@ const findPosts = async ({
     search,
     status,
     userId,
-    returnStatus
+    returnStatus,
+    includeBanned = false // Mặc định không hiển thị bài bị cấm
 }) => {
     try {
         const pageNum = Math.max(1, parseInt(page));
@@ -93,6 +97,15 @@ const findPosts = async ({
 
         // Build query filter
         const filter = {};
+        
+        // Lọc bài bị cấm (chỉ admin mới xem được)
+        if (!includeBanned) {
+            filter.$or = [
+                { banned: { $exists: false } },
+                { banned: false }
+            ];
+        }
+        
         if (category) filter.category = category;
         if (itemType) filter.itemType = { $regex: itemType, $options: 'i' };
         if (location) filter.location = { $regex: location, $options: 'i' };
@@ -100,12 +113,22 @@ const findPosts = async ({
         if (userId) filter.userId = userId;
         if (returnStatus) filter.returnStatus = returnStatus;
         if (search) {
-            filter.$or = [
+            const searchFilter = [
                 { title: { $regex: search, $options: 'i' } },
                 { description: { $regex: search, $options: 'i' } },
                 { itemType: { $regex: search, $options: 'i' } },
                 { location: { $regex: search, $options: 'i' } }
             ];
+            // Kết hợp với filter banned nếu có
+            if (filter.$or) {
+                filter.$and = [
+                    { $or: filter.$or },
+                    { $or: searchFilter }
+                ];
+                delete filter.$or;
+            } else {
+                filter.$or = searchFilter;
+            }
         }
 
         const totalCount = await GET_DB().collection(POST_COLLECTION_NAME).countDocuments(filter);
@@ -300,6 +323,50 @@ const getTopPosters = async ({ limit = 10 }) => {
     }
 };
 
+const banPost = async (id, reason) => {
+    try {
+        const result = await GET_DB()
+            .collection(POST_COLLECTION_NAME)
+            .findOneAndUpdate(
+                { _id: new ObjectId(id) },
+                { 
+                    $set: { 
+                        banned: true, 
+                        bannedReason: reason || 'Vi phạm quy định',
+                        bannedAt: Date.now(),
+                        updatedAt: Date.now()
+                    } 
+                },
+                { returnDocument: 'after' }
+            );
+        return result;
+    } catch (error) {
+        throw error;
+    }
+};
+
+const unbanPost = async (id) => {
+    try {
+        const result = await GET_DB()
+            .collection(POST_COLLECTION_NAME)
+            .findOneAndUpdate(
+                { _id: new ObjectId(id) },
+                { 
+                    $set: { 
+                        banned: false, 
+                        bannedReason: null,
+                        bannedAt: null,
+                        updatedAt: Date.now()
+                    } 
+                },
+                { returnDocument: 'after' }
+            );
+        return result;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const POSTMODEL = {
     createPost,
     findPostById,
@@ -307,6 +374,8 @@ export const POSTMODEL = {
     updatePost,
     deletePost,
     getTopPosters,
-    toggleLike
+    toggleLike,
+    banPost,
+    unbanPost
 };
 

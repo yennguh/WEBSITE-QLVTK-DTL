@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Eye, Trash2, CheckCircle, Clock, X, Ban } from 'lucide-react';
+import { AlertTriangle, Eye, Trash2, CheckCircle, Clock, X, Ban, Unlock } from 'lucide-react';
 import { fetchReports, updateReport, deleteReport } from '../../api/reports.api';
-import { updatePost, deletePost } from '../../api/posts.api';
+import { banPost, unbanPost, deletePost } from '../../api/posts.api';
 
 const ReportsList = () => {
     const [reports, setReports] = useState([]);
@@ -10,6 +10,10 @@ const ReportsList = () => {
     const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
     const [filter, setFilter] = useState('');
     const [selectedReport, setSelectedReport] = useState(null);
+    const [banReason, setBanReason] = useState('');
+    const [showBanModal, setShowBanModal] = useState(false);
+    const [banningPostId, setBanningPostId] = useState(null);
+    const [banningReportId, setBanningReportId] = useState(null);
 
     const loadReports = async (page = 1) => {
         setLoading(true);
@@ -49,15 +53,43 @@ const ReportsList = () => {
         }
     };
 
-    // Cấm bài đăng (reject)
-    const handleBanPost = async (postId, reportId) => {
-        if (!window.confirm('Bạn có chắc muốn cấm/từ chối bài đăng này?')) return;
+    // Mở modal cấm bài đăng
+    const openBanModal = (postId, reportId, reason = '') => {
+        setBanningPostId(postId);
+        setBanningReportId(reportId);
+        setBanReason(reason || '');
+        setShowBanModal(true);
+    };
+
+    // Cấm bài đăng với lý do
+    const handleBanPost = async () => {
+        if (!banReason.trim()) {
+            alert('Vui lòng nhập lý do cấm bài đăng');
+            return;
+        }
         try {
-            await updatePost(postId, { status: 'rejected' });
-            await handleUpdateStatus(reportId, 'resolved');
-            alert('Đã cấm bài đăng thành công!');
+            await banPost(banningPostId, banReason.trim());
+            await handleUpdateStatus(banningReportId, 'resolved');
+            alert('Đã cấm bài đăng và gửi thông báo cho người đăng!');
+            setShowBanModal(false);
+            setBanReason('');
+            setBanningPostId(null);
+            setBanningReportId(null);
+            if (selectedReport) setSelectedReport(null);
         } catch (error) {
             alert('Có lỗi xảy ra khi cấm bài đăng');
+        }
+    };
+
+    // Gỡ cấm bài đăng
+    const handleUnbanPost = async (postId) => {
+        if (!window.confirm('Bạn có chắc muốn gỡ cấm bài đăng này?')) return;
+        try {
+            await unbanPost(postId);
+            alert('Đã gỡ cấm bài đăng!');
+            loadReports(pagination.page);
+        } catch (error) {
+            alert('Có lỗi xảy ra khi gỡ cấm bài đăng');
         }
     };
 
@@ -133,7 +165,7 @@ const ReportsList = () => {
                                             <button onClick={() => setSelectedReport(report)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Xem chi tiết">
                                                 <Eye className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => handleBanPost(report.postId, report._id)} className="p-1.5 text-orange-600 hover:bg-orange-50 rounded" title="Cấm bài đăng">
+                                            <button onClick={() => openBanModal(report.postId, report._id, report.reason)} className="p-1.5 text-orange-600 hover:bg-orange-50 rounded" title="Cấm bài đăng">
                                                 <Ban className="w-4 h-4" />
                                             </button>
                                             {report.status === 'pending' && (
@@ -190,7 +222,7 @@ const ReportsList = () => {
                         </div>
                         <div className="space-y-3 mt-6">
                             <div className="flex gap-2">
-                                <button onClick={() => handleBanPost(selectedReport.postId, selectedReport._id)} className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2">
+                                <button onClick={() => { setSelectedReport(null); openBanModal(selectedReport.postId, selectedReport._id, selectedReport.reason); }} className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2">
                                     <Ban className="w-4 h-4" /> Cấm bài đăng
                                 </button>
                                 <button onClick={() => handleDeletePost(selectedReport.postId, selectedReport._id)} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2">
@@ -207,6 +239,50 @@ const ReportsList = () => {
                                     Xóa tố cáo
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal cấm bài đăng */}
+            {showBanModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-orange-600 flex items-center gap-2">
+                                <Ban className="w-6 h-6" /> Cấm bài đăng
+                            </h3>
+                            <button onClick={() => { setShowBanModal(false); setBanReason(''); }} className="p-1 hover:bg-gray-100 rounded-full">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="text-gray-600 mb-4">
+                            Bài đăng sẽ bị ẩn và người đăng sẽ nhận được thông báo về việc bị cấm.
+                        </p>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium mb-2">Lý do cấm bài đăng <span className="text-red-500">*</span></label>
+                            <textarea
+                                value={banReason}
+                                onChange={(e) => setBanReason(e.target.value)}
+                                placeholder="Nhập lý do cấm bài đăng (sẽ được gửi cho người đăng)..."
+                                className="w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                rows="4"
+                            />
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleBanPost}
+                                disabled={!banReason.trim()}
+                                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                <Ban className="w-4 h-4" /> Xác nhận cấm
+                            </button>
+                            <button
+                                onClick={() => { setShowBanModal(false); setBanReason(''); }}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                            >
+                                Hủy
+                            </button>
                         </div>
                     </div>
                 </div>
