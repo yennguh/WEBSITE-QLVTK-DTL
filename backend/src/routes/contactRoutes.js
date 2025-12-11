@@ -1,6 +1,7 @@
 import express from 'express';
 import { contactController } from '../controllers/contactController.js';
 import { isAuth } from '../middlewares/authMiddleware.js';
+import { uploadContactImage } from '../middlewares/uploadMiddleware.js';
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ router.get('/my-contacts', isAuth, contactController.getMyContacts);
 // Admin routes - require authentication
 router.get('/', isAuth, contactController.getContacts);
 router.put('/:id', isAuth, contactController.updateContact);
-router.post('/:id/reply', isAuth, contactController.addReply);
+router.post('/:id/reply', isAuth, uploadContactImage, contactController.addReply);
 
 export default router;
 

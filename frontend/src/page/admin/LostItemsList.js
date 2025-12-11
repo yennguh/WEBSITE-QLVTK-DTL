@@ -1,20 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Eye, Trash2, Check, X, Send, RotateCcw, CircleAlert, HandHelping, CheckCircle } from 'lucide-react';
+import { Search, Eye, Trash2, Check, X, Send, RotateCcw, CircleAlert, HandHelping, CheckCircle, Share2, Shield, Flag, Ban } from 'lucide-react';
 import { getImageUrl } from '../../utils/constant';
-import { fetchPosts, deletePost, approvePost, rejectPost, updateReturnStatus } from '../../api/posts.api';
+import { fetchPosts, deletePost, approvePost, rejectPost, updateReturnStatus, banPost } from '../../api/posts.api';
+import { fetchReports } from '../../api/reports.api';
 import AdminSection from './components/AdminSection';
 
 export default function LostItemsList() {
     const navigate = useNavigate();
     const [posts, setPosts] = useState([]);
+    const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
 
+    // Lấy danh sách postId bị tố cáo (chưa xử lý)
+    const reportedPostIds = reports.filter(r => r.status === 'pending' || r.status === 'reviewed').map(r => r.postId);
+    
     // Chia bài đăng theo category và trạng thái
-    const lostPosts = posts.filter(p => p.category === 'lost' && p.returnStatus !== 'gửi trả');
-    const foundPosts = posts.filter(p => p.category === 'found' && p.returnStatus !== 'gửi trả');
+    const pendingPosts = posts.filter(p => p.status === 'pending');
+    const reportedPosts = posts.filter(p => reportedPostIds.includes(p._id) && !p.banned);
+    const bannedPosts = posts.filter(p => p.banned);
+    const sharedPosts = posts.filter(p => p.isShared && p.status !== 'pending' && p.returnStatus !== 'gửi trả' && !p.banned);
+    const lostPosts = posts.filter(p => p.category === 'lost' && !p.isShared && p.status !== 'pending' && p.returnStatus !== 'gửi trả' && !p.banned && !reportedPostIds.includes(p._id));
+    const foundPosts = posts.filter(p => p.category === 'found' && !p.isShared && p.status !== 'pending' && p.returnStatus !== 'gửi trả' && !p.banned && !reportedPostIds.includes(p._id));
     const returnedPosts = posts.filter(p => p.returnStatus === 'gửi trả');
 
     const fetchData = async () => {
@@ -23,18 +32,30 @@ export default function LostItemsList() {
             const params = {
                 page: 1,
                 limit: 100,
+                includeBanned: true, // Lấy cả bài bị cấm
                 ...(statusFilter && { status: statusFilter }),
                 ...(searchTerm && { search: searchTerm })
             };
-            const result = await fetchPosts(params);
-            if (result && result.data) {
-                setPosts(result.data);
+            const [postsResult, reportsResult] = await Promise.all([
+                fetchPosts(params),
+                fetchReports({ page: 1, limit: 100 })
+            ]);
+            
+            if (postsResult && postsResult.data) {
+                setPosts(postsResult.data);
             } else {
                 setPosts([]);
             }
+            
+            if (reportsResult && reportsResult.data) {
+                setReports(reportsResult.data);
+            } else {
+                setReports([]);
+            }
         } catch (error) {
-            console.error('Error fetching posts:', error);
+            console.error('Error fetching data:', error);
             setPosts([]);
+            setReports([]);
         } finally {
             setLoading(false);
         }
@@ -90,6 +111,23 @@ export default function LostItemsList() {
         }
     };
 
+    const handleBanPost = async (postId) => {
+        const reason = window.prompt('Nhập lý do cấm bài đăng:');
+        if (!reason) return;
+        try {
+            await banPost(postId, reason);
+            alert('Đã cấm bài đăng thành công!');
+            fetchData();
+        } catch (error) {
+            alert('Có lỗi xảy ra khi cấm bài đăng');
+        }
+    };
+
+    // Lấy số lượng tố cáo cho bài đăng
+    const getReportCount = (postId) => {
+        return reports.filter(r => r.postId === postId && (r.status === 'pending' || r.status === 'reviewed')).length;
+    };
+
     // Hàm lấy avatar URL
     const getAvatarUrl = (item) => {
         const avatar = item.authorAvatar || item.user?.avatar;
@@ -103,8 +141,13 @@ export default function LostItemsList() {
         return item.authorFullname || item.user?.fullname || 'Ẩn danh';
     };
 
+    // Kiểm tra xem bài đăng có phải của admin không
+    const isAdminPost = (item) => {
+        return item.isAdminPost || item.user?.roles?.includes('admin') || item.authorFullname?.toLowerCase() === 'admin';
+    };
+
     // Component bảng dùng chung
-    const PostTable = ({ data, title, icon: Icon, headerColor, showReturnActions = true }) => (
+    const PostTable = ({ data, title, icon: Icon, headerColor, showReturnActions = true, showReportCount = false, showBanAction = false }) => (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className={`p-4 border-b ${headerColor} flex items-center gap-3`}>
                 <Icon className="w-5 h-5" />
@@ -133,13 +176,34 @@ export default function LostItemsList() {
                                 const avatarUrl = getAvatarUrl(item);
                                 const displayName = getDisplayName(item);
                                 return (
-                                    <tr key={item._id} className="hover:bg-gray-50/50 transition-colors">
+                                    <tr key={item._id} className={`hover:bg-gray-50/50 transition-colors ${item.isShared ? 'bg-gradient-to-r from-pink-50/50 to-purple-50/50' : ''}`}>
                                         <td className="py-3 px-4">
-                                            <p className="font-medium text-gray-800 max-w-[180px] truncate">{item.title}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className={`font-medium max-w-[180px] truncate ${item.isShared ? 'text-pink-600' : 'text-gray-800'}`}>{item.title}</p>
+                                                {item.isShared && (
+                                                    <span className="px-1.5 py-0.5 bg-gradient-to-r from-pink-100 to-purple-100 text-pink-600 rounded-full text-xs font-bold flex items-center gap-0.5 border border-pink-200">
+                                                        <Share2 className="w-3 h-3" /> Chia sẻ
+                                                    </span>
+                                                )}
+                                                {showReportCount && getReportCount(item._id) > 0 && (
+                                                    <span className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full text-xs font-bold flex items-center gap-0.5">
+                                                        <Flag className="w-3 h-3" /> {getReportCount(item._id)}
+                                                    </span>
+                                                )}
+                                                {item.banned && (
+                                                    <span className="px-1.5 py-0.5 bg-gray-800 text-white rounded-full text-xs font-bold flex items-center gap-0.5">
+                                                        <Ban className="w-3 h-3" /> Bị cấm
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                <div className={`relative w-8 h-8 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${
+                                                    isAdminPost(item) 
+                                                        ? 'ring-2 ring-purple-500 ring-offset-1 bg-gradient-to-br from-purple-500 to-pink-500' 
+                                                        : 'bg-gradient-to-br from-blue-400 to-violet-500'
+                                                }`}>
                                                     {avatarUrl ? (
                                                         <img 
                                                             src={avatarUrl} 
@@ -154,8 +218,22 @@ export default function LostItemsList() {
                                                     <span className={`text-white text-xs font-bold ${avatarUrl ? 'hidden' : ''}`}>
                                                         {displayName.charAt(0).toUpperCase()}
                                                     </span>
+                                                    {isAdminPost(item) && (
+                                                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center border-2 border-white">
+                                                            <Shield className="w-2.5 h-2.5 text-white" />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <span className="text-gray-700 text-sm">{displayName}</span>
+                                                <div className="flex flex-col">
+                                                    <span className={`text-sm ${isAdminPost(item) ? 'font-semibold text-purple-700' : 'text-gray-700'}`}>
+                                                        {displayName}
+                                                    </span>
+                                                    {isAdminPost(item) && (
+                                                        <span className="text-[10px] font-medium text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 w-fit">
+                                                            <Shield className="w-2.5 h-2.5" /> Admin
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="py-3 px-4 text-gray-600 text-sm">{item.itemType}</td>
@@ -203,6 +281,11 @@ export default function LostItemsList() {
                                                             <RotateCcw className="w-4 h-4" />
                                                         </button>
                                                     </>
+                                                )}
+                                                {showBanAction && !item.banned && (
+                                                    <button onClick={() => handleBanPost(item._id)} className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg" title="Cấm bài đăng">
+                                                        <Ban className="w-4 h-4" />
+                                                    </button>
                                                 )}
                                                 <button onClick={() => handleDelete(item._id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Xóa">
                                                     <Trash2 className="w-4 h-4" />
@@ -256,6 +339,49 @@ export default function LostItemsList() {
                     </div>
                 ) : (
                     <>
+                        {/* Bảng Chờ duyệt */}
+                        {pendingPosts.length > 0 && (
+                            <PostTable 
+                                data={pendingPosts} 
+                                title="⏳ Chờ duyệt" 
+                                icon={RotateCcw}
+                                headerColor="bg-gradient-to-r from-amber-500 to-yellow-500 text-white"
+                            />
+                        )}
+
+                        {/* Bảng Bài đăng bị tố cáo */}
+                        {reportedPosts.length > 0 && (
+                            <PostTable 
+                                data={reportedPosts} 
+                                title="🚨 Bài đăng bị tố cáo" 
+                                icon={Flag}
+                                headerColor="bg-gradient-to-r from-rose-500 to-red-600 text-white"
+                                showReportCount={true}
+                                showBanAction={true}
+                            />
+                        )}
+
+                        {/* Bảng Bài đăng bị cấm */}
+                        {bannedPosts.length > 0 && (
+                            <PostTable 
+                                data={bannedPosts} 
+                                title="🚫 Bài đăng bị cấm" 
+                                icon={Ban}
+                                headerColor="bg-gradient-to-r from-gray-600 to-gray-800 text-white"
+                                showReturnActions={false}
+                            />
+                        )}
+
+                        {/* Bảng Bài đăng được chia sẻ */}
+                        {sharedPosts.length > 0 && (
+                            <PostTable 
+                                data={sharedPosts} 
+                                title="🔗 Bài đăng được chia sẻ" 
+                                icon={Share2}
+                                headerColor="bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                            />
+                        )}
+
                         {/* Bảng Đồ bị mất */}
                         <PostTable 
                             data={lostPosts} 

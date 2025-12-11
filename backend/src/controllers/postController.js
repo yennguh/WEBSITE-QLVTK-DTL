@@ -8,7 +8,7 @@ const createPost = async (req, res, next) => {
     try {
         const decoded = req.jwtDecoded;
         if (!decoded || !decoded._id) {
-            return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Unauthorized' });
+            return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Chưa đăng nhập' });
         }
 
         const isAdmin = decoded.roles?.includes('admin') || false;
@@ -17,7 +17,8 @@ const createPost = async (req, res, next) => {
             ...req.body,
             userId: decoded._id,
             // Admin đăng bài trực tiếp được duyệt, user thường phải chờ duyệt
-            status: isAdmin ? (req.body.status || 'approved') : 'pending'
+            status: isAdmin ? (req.body.status || 'approved') : 'pending',
+            isAdminPost: isAdmin // Đánh dấu bài đăng của admin
         };
 
         // Capture author fullname and avatar
@@ -33,7 +34,7 @@ const createPost = async (req, res, next) => {
 
         const result = await postServices.createPost(payload);
         res.status(StatusCodes.CREATED).json({
-            message: isAdmin ? 'Post created and approved successfully' : 'Post created successfully, waiting for approval',
+            message: isAdmin ? 'Tạo bài đăng thành công và đã được duyệt' : 'Tạo bài đăng thành công, đang chờ duyệt',
             data: result
         });
     } catch (error) {
@@ -46,7 +47,7 @@ const getPostById = async (req, res, next) => {
         const { id } = req.params;
         const result = await postServices.getPostById(id);
         if (!result) {
-            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Post not found' });
+            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Không tìm thấy bài đăng' });
         }
         res.status(StatusCodes.OK).json(result);
     } catch (error) {
@@ -83,7 +84,7 @@ const updatePost = async (req, res, next) => {
         // Check if post exists
         const post = await postServices.getPostById(id);
         if (!post) {
-            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Post not found' });
+            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Không tìm thấy bài đăng' });
         }
 
         // Check if user is owner or admin
@@ -91,7 +92,7 @@ const updatePost = async (req, res, next) => {
         const isOwner = post.userId === decoded._id;
         
         if (!isOwner && !isAdmin) {
-            return res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to update this post' });
+            return res.status(StatusCodes.FORBIDDEN).json({ message: 'Bạn không có quyền chỉnh sửa bài đăng này' });
         }
 
         let updatePayload = { ...req.body };

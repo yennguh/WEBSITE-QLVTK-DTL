@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Clock, MapPin, Package, Phone, Mail, ArrowLeft, Edit, Trash2, MessageCircle, Send, Heart, Reply, Image, X, Ban } from 'lucide-react';
-import { fetchPostById, deletePost, updatePost } from '../../api/posts.api';
+import { Clock, MapPin, Package, Phone, Mail, ArrowLeft, Edit, Trash2, MessageCircle, Send, Heart, Reply, Image, X, Ban, Share2 } from 'lucide-react';
+import { fetchPostById, deletePost, updatePost, createPost } from '../../api/posts.api';
 import { fetchCommentsByPostId, createComment, updateComment, deleteComment, toggleLikeComment, replyComment } from '../../api/comments.api';
 import { createReport } from '../../api/reports.api';
 import { getImageUrl } from '../../utils/constant';
@@ -42,6 +42,9 @@ const BaidangDetail = () => {
     const [showReportModal, setShowReportModal] = useState(false);
     const [reportReason, setReportReason] = useState('');
     const [submittingReport, setSubmittingReport] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareCaption, setShareCaption] = useState('');
+    const [submittingShare, setSubmittingShare] = useState(false);
     const imageInputRef = useRef(null);
 
     useEffect(() => {
@@ -299,6 +302,33 @@ const BaidangDetail = () => {
                         </div>
                         <div className="flex items-center gap-2">
                             <div className={`px-4 py-2 rounded-full text-sm font-semibold ${post.category === 'lost' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>{post.category === 'lost' ? '🔍 Thất lạc' : '✨ Nhặt được'}</div>
+                            
+                            {/* Badge trạng thái đã tìm được/đã trả */}
+                            {/* Chủ bài/Admin: hiện checkbox + badge */}
+                            {(isOwner || isAdmin) && (
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={returnStatus} 
+                                        onChange={handleToggleReturnStatus}
+                                        className="w-5 h-5 rounded border-gray-300 text-green-500 focus:ring-green-500"
+                                    />
+                                    <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                                        returnStatus 
+                                            ? 'bg-green-500 text-white' 
+                                            : 'bg-gray-200 text-gray-500'
+                                    }`}>
+                                        {post.category === 'lost' ? 'Đã tìm được' : 'Đã trả lại'}
+                                    </span>
+                                </label>
+                            )}
+                            {/* Người khác: chỉ thấy badge khi đã tick */}
+                            {!isOwner && !isAdmin && returnStatus && (
+                                <div className="px-4 py-2 rounded-full text-sm font-semibold bg-green-500 text-white flex items-center gap-2">
+                                    <span className="text-white">✓</span>
+                                    {post.category === 'lost' ? 'Đã tìm được' : 'Đã trả lại'}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -423,12 +453,11 @@ const BaidangDetail = () => {
                                 <Heart className={`w-5 h-5 ${isFavorite ? 'fill-red-500' : ''}`} /> {isFavorite ? 'Đã yêu thích' : 'Yêu thích'}
                             </button>
                             
-                            {/* Checkbox chỉ hiện cho chủ bài đăng */}
-                            {isOwner && (
-                                <label className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium cursor-pointer transition-all ${returnStatus ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                                    <input type="checkbox" checked={returnStatus} onChange={handleToggleReturnStatus} className="w-4 h-4 accent-green-600" />
-                                    {post.category === 'lost' ? 'Đã tìm được' : 'Đã trả lại'}
-                                </label>
+                            {/* Nút chia sẻ */}
+                            {token && !isOwner && (
+                                <button onClick={() => setShowShareModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200">
+                                    <Share2 className="w-5 h-5" /> Chia sẻ
+                                </button>
                             )}
                         </div>
 
@@ -559,6 +588,101 @@ const BaidangDetail = () => {
                             <button onClick={() => setShowReportModal(false)} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Hủy</button>
                             <button onClick={handleSubmitReport} disabled={submittingReport || !reportReason.trim()} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300">
                                 {submittingReport ? 'Đang gửi...' : 'Gửi tố cáo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Chia sẻ bài đăng */}
+            {showShareModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white p-4 border-b flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-blue-600 flex items-center gap-2">
+                                <Share2 className="w-6 h-6" /> Chia sẻ bài đăng
+                            </h3>
+                            <button onClick={() => { setShowShareModal(false); setShareCaption(''); }} className="p-1 hover:bg-gray-100 rounded-full">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-4">
+                            {/* Caption của người chia sẻ */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-2">Viết gì đó về bài đăng này...</label>
+                                <textarea
+                                    value={shareCaption}
+                                    onChange={(e) => setShareCaption(e.target.value)}
+                                    placeholder="Chia sẻ suy nghĩ của bạn về bài đăng này..."
+                                    className="w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                    rows="3"
+                                />
+                            </div>
+
+                            {/* Preview bài đăng gốc */}
+                            <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+                                <div className="p-4">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+                                            {user?.fullname?.charAt(0)?.toUpperCase() || 'U'}
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900">{user?.fullname || 'Người dùng'}</p>
+                                            <p className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleDateString('vi-VN')}</p>
+                                        </div>
+                                        <span className={`ml-auto px-3 py-1 rounded-full text-xs font-medium ${post.category === 'lost' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                            {post.category === 'lost' ? '🔍 Thất lạc' : '✨ Nhặt được'}
+                                        </span>
+                                    </div>
+                                    <h4 className="font-bold text-blue-600 mb-2">{post.title}</h4>
+                                    <p className="text-gray-600 text-sm line-clamp-3">{post.description}</p>
+                                    {post.images?.[0] && (
+                                        <div className="mt-3 rounded-lg overflow-hidden">
+                                            <img src={getImageUrl(post.images[0])} alt="" className="w-full h-48 object-cover" />
+                                        </div>
+                                    )}
+                                    <div className="flex gap-2 mt-3">
+                                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">{post.itemType}</span>
+                                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">{post.location}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="sticky bottom-0 bg-white p-4 border-t flex gap-3">
+                            <button onClick={() => { setShowShareModal(false); setShareCaption(''); }} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                                Hủy
+                            </button>
+                            <button 
+                                onClick={async () => {
+                                    setSubmittingShare(true);
+                                    try {
+                                        // Tạo bài đăng mới với thông tin chia sẻ
+                                        await createPost({
+                                            title: shareCaption.trim() || `Chia sẻ: ${post.title}`,
+                                            description: `${shareCaption ? shareCaption + '\n\n---\n\n' : ''}📢 Chia sẻ từ bài đăng của ${user?.fullname || 'người dùng'}:\n\n${post.description}`,
+                                            category: post.category,
+                                            itemType: post.itemType,
+                                            location: post.location,
+                                            images: post.images || [],
+                                            sharedFrom: post._id, // ID bài gốc
+                                            sharedFromUser: post.userId // ID người đăng gốc
+                                        });
+                                        alert('Đã chia sẻ bài đăng thành công! Bài đăng đang chờ duyệt.');
+                                        setShowShareModal(false);
+                                        setShareCaption('');
+                                    } catch (err) {
+                                        alert('Có lỗi xảy ra khi chia sẻ');
+                                    } finally {
+                                        setSubmittingShare(false);
+                                    }
+                                }} 
+                                disabled={submittingShare}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                            >
+                                <Share2 className="w-4 h-4" />
+                                {submittingShare ? 'Đang chia sẻ...' : 'Chia sẻ ngay'}
                             </button>
                         </div>
                     </div>

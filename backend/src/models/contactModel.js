@@ -29,7 +29,8 @@ const normalizeUserId = (userId) => {
 };
 
 const REPLY_SCHEMA = Joi.object({
-    message: Joi.string().required(),
+    message: Joi.string().allow('').optional(),
+    image: Joi.string().optional(), // URL ảnh đính kèm
     sender: Joi.string().valid('user', 'admin').required(),
     senderId: Joi.string().optional(),
     senderName: Joi.string().optional(),

@@ -32,25 +32,27 @@ const InfoUser = async (req, res, next) => {
         // `isAuth` middleware sets `req.jwtDecoded` after verifying the token
         const decoded = req.jwtDecoded;
         if (!decoded) {
-            return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Token not provided or invalid.' });
+            return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
         }
 
         // token payload uses `_id` when created in jwtHelper.generateToken
         const userId = decoded._id
         if (!userId) {
-            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'User id not found in token.' });
+            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Không tìm thấy ID người dùng trong token' });
         }
         const user = await userServices.GetUserInfor(userId);
         if (!user) {
-            return res.status(StatusCodes.NOT_FOUND).json({ message: 'User not found.' });
+            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Không tìm thấy người dùng' });
         }
         if (user) {
             let data = {
+                _id: userId, // Thêm _id để frontend có thể fetch bài đăng của user
                 fullname: user.fullname,
                 email: user.email,
                 phone: user.phone,
                 avatar: user.avatar || null,
                 coverPhoto: user.coverPhoto || null,
+                createdAt: user.createdAt || null,
             }
             return res.status(StatusCodes.OK).json(data);
         }
@@ -82,7 +84,7 @@ const refreshToken = async (req, res) => {
 
     if (!token) {
         return res.status(StatusCodes.BAD_REQUEST).json({
-            message: 'Refresh token is required'
+            message: 'Yêu cầu refresh token'
         });
     }
 
@@ -99,7 +101,7 @@ const refreshToken = async (req, res) => {
     } catch (error) {
         console.error('Error refreshing token:', error);
         return res.status(StatusCodes.UNAUTHORIZED).json({
-            message: 'Invalid refresh token'
+            message: 'Refresh token không hợp lệ'
         });
     }
 }
@@ -124,7 +126,7 @@ const UpdateUser = async (req, res, next) => {
     try {
         const decoded = req.jwtDecoded;
         if (!decoded || !decoded._id) {
-            return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Unauthorized' });
+            return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Chưa đăng nhập' });
         }
 
         // Prepare update payload
@@ -145,13 +147,13 @@ const UpdateUser = async (req, res, next) => {
 
         // Check if there's anything to update
         if (Object.keys(updatePayload).length === 0 && !req.file) {
-            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'No fields provided for update' });
+            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Không có thông tin nào để cập nhật' });
         }
 
         const updatedUser = await userServices.UpdateUser(decoded._id, updatePayload);
 
         if (!updatedUser) {
-            return res.status(StatusCodes.OK).json({ message: 'User update successfully' });
+            return res.status(StatusCodes.OK).json({ message: 'Cập nhật thông tin thành công' });
         }
 
         // Also update posts author snapshot so existing posts reflect latest avatar/fullname
@@ -191,7 +193,7 @@ const UpdateUser = async (req, res, next) => {
         }
 
         return res.status(StatusCodes.OK).json({
-            message: 'User updated successfully',
+            message: 'Cập nhật thông tin thành công',
             data: {
                 fullname: updatedUser.fullname,
                 email: updatedUser.email,
@@ -212,13 +214,13 @@ const DeleteUser = async (req, res, next) => {
         const { id } = req.params;
         
         if (!id) {
-            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'User ID is required' });
+            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Yêu cầu ID người dùng' });
         }
 
         const result = await userServices.DeleteUser(id);
         
         return res.status(StatusCodes.OK).json({
-            message: 'User deleted successfully',
+            message: 'Xóa người dùng thành công',
             data: result
         });
     } catch (error) {
@@ -234,7 +236,7 @@ const GoogleLogin = async (req, res, next) => {
         const { credential } = req.body;
         
         if (!credential) {
-            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Google credential is required' });
+            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Yêu cầu thông tin đăng nhập Google' });
         }
 
         // Verify Google token
@@ -292,7 +294,7 @@ const GoogleLogin = async (req, res, next) => {
     } catch (error) {
         console.error('Google login error:', error);
         return res.status(StatusCodes.UNAUTHORIZED).json({ 
-            message: 'Google authentication failed',
+            message: 'Đăng nhập Google thất bại',
             error: error.message 
         });
     }

@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 const avatarDir = path.join(__dirname, '../../public/uploads/avatars/');
 const commentDir = path.join(__dirname, '../../public/uploads/comments/');
 const coverDir = path.join(__dirname, '../../public/uploads/covers/');
+const contactDir = path.join(__dirname, '../../public/uploads/contacts/');
 
 if (!fs.existsSync(avatarDir)) {
     fs.mkdirSync(avatarDir, { recursive: true });
@@ -19,6 +20,9 @@ if (!fs.existsSync(commentDir)) {
 }
 if (!fs.existsSync(coverDir)) {
     fs.mkdirSync(coverDir, { recursive: true });
+}
+if (!fs.existsSync(contactDir)) {
+    fs.mkdirSync(contactDir, { recursive: true });
 }
 
 // Configure storage for avatars
@@ -116,8 +120,31 @@ const uploadProfileMulter = multer({
     fileFilter: fileFilter
 });
 
+// Configure storage for contact images
+const contactStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        if (!fs.existsSync(contactDir)) {
+            fs.mkdirSync(contactDir, { recursive: true });
+        }
+        cb(null, contactDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, 'contact-' + uniqueSuffix + ext);
+    }
+});
+
+// Configure multer for contact images
+const uploadContactMulter = multer({
+    storage: contactStorage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: fileFilter
+});
+
 export const uploadAvatar = uploadAvatarMulter.single('avatar');
 export const uploadCommentImage = uploadCommentMulter.single('image');
+export const uploadContactImage = uploadContactMulter.single('image');
 export const uploadProfile = uploadProfileMulter.fields([
     { name: 'avatar', maxCount: 1 },
     { name: 'coverPhoto', maxCount: 1 }

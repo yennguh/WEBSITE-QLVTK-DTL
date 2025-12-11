@@ -9,6 +9,7 @@ const USER_COLLECTION_SCHEMA = Joi.object({
     roles: Joi.array().items(Joi.string().valid('user', 'admin', 'dev')).required(),
     fullname: Joi.string().required(),
     avatar: Joi.string().optional(),
+    coverPhoto: Joi.string().optional(),
     createdAt: Joi.date().timestamp('javascript').default(Date.now),
     updateAt: Joi.date().timestamp('javascript').default(null)
 })
@@ -19,7 +20,8 @@ const USER_UPDATE_SCHEMA = Joi.object({
     fullname: Joi.string(),
     roles: Joi.array().items(Joi.string().valid('user', 'admin', 'dev')),
     password: Joi.string(),
-    avatar: Joi.string().optional()
+    avatar: Joi.string().optional(),
+    coverPhoto: Joi.string().optional()
 }).min(1);
 
 const validateCreated = async (data) => {

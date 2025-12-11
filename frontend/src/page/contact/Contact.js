@@ -12,7 +12,9 @@ import {
     CheckCircle2,
     Circle,
     ArrowLeft,
-    RefreshCw
+    RefreshCw,
+    Image,
+    X
 } from 'lucide-react';
 import { sendContact, fetchContacts, addReply } from '../../api/contact.api';
 import { AuthContext } from '../../core/AuthContext';
@@ -31,6 +33,9 @@ const Contact = () => {
     const messagesEndRef = useRef(null);
     const [userInfo, setUserInfo] = useState(null);
     const [showMobileChat, setShowMobileChat] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const imageInputRef = useRef(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -136,16 +141,43 @@ const Contact = () => {
         }
     };
 
+    const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Ảnh không được vượt quá 5MB');
+                return;
+            }
+            setSelectedImage(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeSelectedImage = () => {
+        setSelectedImage(null);
+        setImagePreview(null);
+        if (imageInputRef.current) {
+            imageInputRef.current.value = '';
+        }
+    };
+
     const handleSendReply = async (e) => {
         e.preventDefault();
-        if (!replyMessage.trim() || !selectedContact) return;
+        if ((!replyMessage.trim() && !selectedImage) || !selectedContact) return;
 
         setSending(true);
         const replyText = replyMessage.trim();
+        const imageFile = selectedImage;
         setReplyMessage('');
+        removeSelectedImage();
         
         const tempReply = {
             message: replyText,
+            image: imagePreview,
             sender: 'user',
             senderId: null,
             senderName: userInfo?.fullname || user?.fullname || 'User',
@@ -162,7 +194,7 @@ const Contact = () => {
         ));
         
         try {
-            await addReply(selectedContact._id, replyText);
+            await addReply(selectedContact._id, replyText, imageFile);
             setTimeout(() => {
                 fetchData();
                 const userEmail = userInfo?.email || user?.email;
@@ -502,7 +534,16 @@ const Contact = () => {
                                                                 : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-tr-sm'
                                                         }`}
                                                     >
-                                                        <p className="text-sm leading-relaxed">{reply.message}</p>
+                                                        {reply.message && <p className="text-sm leading-relaxed">{reply.message}</p>}
+                                                        {reply.image && (
+                                                            <img 
+                                                                src={reply.image.startsWith('data:') ? reply.image : `${process.env.REACT_APP_API_URL}${reply.image}`}
+                                                                alt="Ảnh đính kèm"
+                                                                className="mt-2 max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                                style={{ maxHeight: '200px' }}
+                                                                onClick={() => window.open(reply.image.startsWith('data:') ? reply.image : `${process.env.REACT_APP_API_URL}${reply.image}`, '_blank')}
+                                                            />
+                                                        )}
                                                     </div>
                                                     <div className={`text-xs text-gray-400 mt-1.5 flex items-center gap-1 ${
                                                         reply.sender === 'admin' ? 'justify-start' : 'justify-end'
@@ -518,7 +559,39 @@ const Contact = () => {
 
                                     {/* Input */}
                                     <div className="p-4 bg-white border-t">
+                                        {/* Image Preview */}
+                                        {imagePreview && (
+                                            <div className="mb-3 relative inline-block">
+                                                <img 
+                                                    src={imagePreview} 
+                                                    alt="Preview" 
+                                                    className="max-h-24 rounded-lg border border-gray-200"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={removeSelectedImage}
+                                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                         <form onSubmit={handleSendReply} className="flex gap-3">
+                                            <input
+                                                type="file"
+                                                ref={imageInputRef}
+                                                onChange={handleImageSelect}
+                                                accept="image/*"
+                                                className="hidden"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => imageInputRef.current?.click()}
+                                                className="px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center"
+                                                title="Gửi ảnh"
+                                            >
+                                                <Image className="w-5 h-5 text-gray-500" />
+                                            </button>
                                             <input
                                                 type="text"
                                                 value={replyMessage}
@@ -529,7 +602,7 @@ const Contact = () => {
                                             />
                                             <button
                                                 type="submit"
-                                                disabled={sending || !replyMessage.trim()}
+                                                disabled={sending || (!replyMessage.trim() && !selectedImage)}
                                                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg transform hover:scale-105"
                                             >
                                                 <Send className="w-5 h-5" />

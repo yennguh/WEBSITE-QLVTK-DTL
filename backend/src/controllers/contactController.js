@@ -60,14 +60,21 @@ const addReply = async (req, res, next) => {
         const { id } = req.params;
         const { message } = req.body;
 
-        if (!message) {
-            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Message is required' });
+        // Lấy URL ảnh nếu có upload
+        let imageUrl = null;
+        if (req.file) {
+            imageUrl = `/uploads/contacts/${req.file.filename}`;
+        }
+
+        if (!message && !imageUrl) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Message or image is required' });
         }
 
         // Determine sender type
         const isAdmin = decoded && decoded.roles?.includes('admin');
         const replyData = {
-            message,
+            message: message || '',
+            image: imageUrl,
             sender: isAdmin ? 'admin' : 'user',
             senderId: decoded?._id || null,
             senderName: isAdmin ? 'Admin' : decoded?.fullname || req.body.senderName || 'User',

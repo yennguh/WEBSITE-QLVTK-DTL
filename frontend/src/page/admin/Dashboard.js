@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
     Search, Package, CheckCircle, Clock, Eye, Trash2, Check, X, Edit,
-    TrendingUp, MapPin, Tag, Users, AlertCircle, BarChart3, PieChart, Flag
+    TrendingUp, MapPin, Tag, Users, AlertCircle, BarChart3, PieChart, Flag, Share2
 } from "lucide-react";
 import { fetchPosts, approvePost, rejectPost, deletePost, fetchTopPosters } from "../../api/posts.api";
 import { countPendingReports } from "../../api/reports.api";
@@ -20,6 +20,7 @@ export default function Dashboard() {
         rejected: 0,
         lost: 0,
         found: 0,
+        shared: 0,
         pendingReports: 0
     });
     const [topPosters, setTopPosters] = useState([]);
@@ -70,8 +71,9 @@ export default function Dashboard() {
                 const rejected = allPosts.filter(p => p.status === 'rejected').length;
                 const lost = allPosts.filter(p => p.category === 'lost').length;
                 const found = allPosts.filter(p => p.category === 'found').length;
+                const shared = allPosts.filter(p => p.isShared).length;
                 
-                setStats({ total, approved, pending, completed, rejected, lost, found });
+                setStats(prev => ({ ...prev, total, approved, pending, completed, rejected, lost, found, shared }));
 
                 // Location stats
                 const locMap = {};
@@ -159,7 +161,7 @@ export default function Dashboard() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-4 mb-8">
                 <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -240,6 +242,18 @@ export default function Dashboard() {
                         <div>
                             <p className="text-2xl font-bold text-emerald-600">{stats.found}</p>
                             <p className="text-xs text-gray-500">Nhặt được</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
+                            <Share2 className="w-6 h-6 text-pink-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-pink-600">{stats.shared}</p>
+                            <p className="text-xs text-gray-500">Được chia sẻ</p>
                         </div>
                     </div>
                 </div>

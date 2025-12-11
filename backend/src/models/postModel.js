@@ -23,6 +23,10 @@ const POST_COLLECTION_SCHEMA = Joi.object({
     banned: Joi.boolean().default(false), // Bài đăng bị cấm do vi phạm
     bannedReason: Joi.string().optional(), // Lý do bị cấm
     bannedAt: Joi.date().timestamp('javascript').optional(), // Thời gian bị cấm
+    sharedFrom: Joi.string().optional(), // ID bài đăng gốc (nếu là bài chia sẻ)
+    sharedFromUser: Joi.string().optional(), // ID người đăng bài gốc
+    isShared: Joi.boolean().default(false), // Đánh dấu bài đăng được chia sẻ
+    isAdminPost: Joi.boolean().default(false), // Đánh dấu bài đăng của admin
     createdAt: Joi.date().timestamp('javascript').default(Date.now),
     updatedAt: Joi.date().timestamp('javascript').default(null)
 });
@@ -97,46 +101,47 @@ const findPosts = async ({
 
         // Build query filter
         const filter = {};
+        const andConditions = [];
         
-        // Lọc bài bị cấm (chỉ admin mới xem được)
-        if (!includeBanned) {
-            filter.$or = [
-                { banned: { $exists: false } },
-                { banned: false }
-            ];
+        // Lọc bài bị cấm - nhưng nếu có userId (xem profile) thì cho phép xem tất cả bài của user đó
+        const shouldFilterBanned = !includeBanned && includeBanned !== 'true' && !userId;
+        if (shouldFilterBanned) {
+            andConditions.push({
+                $or: [
+                    { banned: { $exists: false } },
+                    { banned: false }
+                ]
+            });
         }
         
         if (category) filter.category = category;
         if (itemType) filter.itemType = { $regex: itemType, $options: 'i' };
         if (location) filter.location = { $regex: location, $options: 'i' };
         if (status) filter.status = status;
-        if (userId) filter.userId = userId;
+        if (userId) filter.userId = String(userId); // Đảm bảo userId là string
         if (returnStatus) filter.returnStatus = returnStatus;
         if (search) {
-            const searchFilter = [
-                { title: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
-                { itemType: { $regex: search, $options: 'i' } },
-                { location: { $regex: search, $options: 'i' } }
-            ];
-            // Kết hợp với filter banned nếu có
-            if (filter.$or) {
-                filter.$and = [
-                    { $or: filter.$or },
-                    { $or: searchFilter }
-                ];
-                delete filter.$or;
-            } else {
-                filter.$or = searchFilter;
-            }
+            andConditions.push({
+                $or: [
+                    { title: { $regex: search, $options: 'i' } },
+                    { description: { $regex: search, $options: 'i' } },
+                    { itemType: { $regex: search, $options: 'i' } },
+                    { location: { $regex: search, $options: 'i' } }
+                ]
+            });
         }
 
-        const totalCount = await GET_DB().collection(POST_COLLECTION_NAME).countDocuments(filter);
+        // Kết hợp filter với andConditions
+        const finalFilter = andConditions.length > 0 
+            ? { ...filter, $and: andConditions }
+            : filter;
+
+        const totalCount = await GET_DB().collection(POST_COLLECTION_NAME).countDocuments(finalFilter);
 
         const posts = await GET_DB()
             .collection(POST_COLLECTION_NAME)
             .aggregate([
-                { $match: filter },
+                { $match: finalFilter },
                 { $sort: { [sortBy]: sortOrder } },
                 { $skip: skip },
                 { $limit: limitNum },

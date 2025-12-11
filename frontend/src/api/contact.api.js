@@ -40,9 +40,20 @@ export const getMyContacts = async () => {
     }
 };
 
-export const addReply = async (contactId, message) => {
+export const addReply = async (contactId, message, imageFile = null) => {
     try {
-        const response = await api.post(`/v1/contact/${contactId}/reply`, { message });
+        const formData = new FormData();
+        if (message) {
+            formData.append('message', message);
+        }
+        if (imageFile) {
+            formData.append('image', imageFile);
+        }
+        const response = await api.post(`/v1/contact/${contactId}/reply`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
         return response.data;
     } catch (error) {
         console.error("Lỗi gửi phản hồi:", error.response?.data || error.message);
